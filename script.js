@@ -1,8 +1,9 @@
 // Array temporário para testar a interface visualmente
-let tarefas = [
-    { id: 1, texto: "Configurar o GitHub Pages" },
-    { id: 2, texto: "Conectar o Banco de Dados" }
-];
+// Substitua pelas tuas credenciais do Supabase:
+const SUPABASE_URL = 'https://finmivasfcnnJntfaeei.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_1GrP5ip9yUycdbQ_JnvDdQ_b6_vxJFK'; 
+
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 function carregarTarefas() {
     const lista = document.getElementById('listaTarefas');
