@@ -1,5 +1,5 @@
 const SUPABASE_URL = 'https://finmivasfcnnJntfaeei.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_1GrP5ip9yUycdbQ_JnvDdQ_b6_vXJFK';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpbm1pdmFzZmNubmpudGZhZWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwNzY2MTIsImV4cCI6MjEwNzY1MjYxMn0.0IURfOPO9ExLv4D2VM03ENyPIBzG2iy9xEyE1gtlFd0';
 
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let listaProdutosGlobal = [];
