@@ -3,34 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meu Site com Banco de Dados Seguro</title>
+    <title>Minha Loja Online</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Meu Site no GitHub Pages</h1>
-        <p>Tarefas protegidas por Autenticação</p>
-
-        <!-- Área de Login (Aparece se não estiver logado) -->
-        <div id="secaoLogin" class="form-group" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
-            <input type="email" id="emailLogin" placeholder="O seu email">
-            <input type="password" id="senhaLogin" placeholder="Palavra-passe">
-            <button onclick="fazerLogin()" style="background-color: #28a745;">Entrar</button>
+    <header class="header">
+        <h1>🛍️ Minha Loja Virtual</h1>
+        <div id="statusLogin">
+            <!-- Botão de Login/Logout dinâmico -->
         </div>
+    </header>
 
-        <!-- Área de Tarefas (Só aparece após o login) -->
-        <div id="secaoTarefas" style="display: none;">
-            <div class="form-group" style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <input type="text" id="inputTarefa" placeholder="Digite uma nova tarefa...">
-                <button onclick="adicionarTarefa()">Adicionar</button>
+    <main class="container">
+        <!-- Formulário de Login Modal/Oculto -->
+        <section id="secaoLogin" class="card" style="display: none;">
+            <h2>Área do Administrador</h2>
+            <div class="form-group">
+                <input type="email" id="emailLogin" placeholder="Email do administrador">
+                <input type="password" id="senhaLogin" placeholder="Palavra-passe">
+                <button onclick="fazerLogin()" class="btn-success">Entrar</button>
             </div>
-            <button onclick="fazerLogout()" style="background-color: #dc3545; margin-bottom: 20px; width: 100%;">Sair da Conta</button>
-        </div>
+        </section>
 
-        <ul id="listaTarefas">
-            <!-- Os itens do banco vão aparecer aqui -->
-        </ul>
-    </div>
+        <!-- Painel de Adicionar Produtos (Só visível para Admin logado) -->
+        <section id="secaoAdmin" class="card admin-panel" style="display: none;">
+            <h2>➕ Adicionar Novo Produto</h2>
+            <div class="form-group">
+                <input type="text" id="nomeProduto" placeholder="Nome do produto...">
+                <input type="text" id="precoProduto" placeholder="Preço (ex: 19.99 €)">
+                <button onclick="adicionarProduto()" class="btn-primary">Cadastrar Produto</button>
+            </div>
+            <button onclick="fazerLogout()" class="btn-danger btn-sm">Sair do Modo Admin</button>
+        </section>
+
+        <!-- Catálogo de Produtos da Loja -->
+        <section class="catalogo-secao">
+            <h2>Catálogo de Produtos</h2>
+            <div id="gridProdutos" class="grid-produtos">
+                <!-- Os produtos vão aparecer em cartões aqui -->
+            </div>
+        </section>
+    </main>
 
     <!-- SDK do Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
