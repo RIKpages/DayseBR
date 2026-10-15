@@ -238,15 +238,35 @@ function renderizarCarrinho() {
 function finalizarCompra() {
     if (carrinho.length === 0) return alert('O carrinho está vazio!');
 
-    let totalCompra = carrinho.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
-    totalVendasConcluidas += 1;
-    receitaTotalAcumulada += totalCompra;
+    // 1. Número do WhatsApp da loja (exemplo com código de país: 351 para Portugal ou 55 para Brasil)
+    const numeroWhatsApp = "351912345678"; // <--- ALTERE PARA O SEU NÚMERO AQUI
 
+    // 2. Montar o texto da mensagem com os itens do carrinho
+    let mensagem = "Olá! Gostaria de fazer a seguinte encomenda:%0A%0A";
+    
+    let totalGeral = 0;
+    carrinho.forEach((item) => {
+        const subtotal = item.preco * item.quantidade;
+        totalGeral += subtotal;
+        mensagem += `- ${item.nome} x(${item.quantidade}) — ${subtotal.toFixed(2)} €%0A`;
+    });
+
+    mensagem += `%0A*Total da Encomenda: ${totalGeral.toFixed(2)} €*%0A%0APor favor, confirme os detalhes para prosseguirmos com o pagamento.`;
+
+    // 3. Atualizar o quadro de vendas do Administrador localmente
+    totalVendasConcluidas += 1;
+    receitaTotalAcumulada += totalGeral;
+    atualizarDashboardVendas();
+
+    // 4. Abrir o WhatsApp com a mensagem formatada
+    const urlWhatsApp = `https://wa.me/${numeroWhatsApp}?text=${mensagem}`;
+    window.open(urlWhatsApp, '_blank');
+
+    // 5. Limpar o carrinho e fechar a gaveta
     carrinho = [];
     document.getElementById('contadorCarrinho').textContent = '0';
-    atualizarDashboardVendas();
     fecharCarrinho();
-    alert('Compra concluída com sucesso! Obrigado pela preferência.');
+}
 }
 
 function atualizarDashboardVendas() {
