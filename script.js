@@ -1,10 +1,52 @@
-// Credenciais do Supabase
 const SUPABASE_URL = 'https://finmivasfcnnJntfaeei.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_1GrP5ip9yUcdbQ_JnvDDq_b6_vXJFK';
 
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Função para procurar as tarefas salvas na base de dados
+// Verificar se já existe uma sessão ativa
+async function verificarSessao() {
+    const { data: { session } } = await _supabase.auth.getSession();
+    controlarInterface(session);
+    carregarTarefas();
+}
+
+function controlarInterface(session) {
+    const secaoLogin = document.getElementById('secaoLogin');
+    const secaoTarefas = document.getElementById('secaoTarefas');
+
+    if (session) {
+        secaoLogin.style.display = 'none';
+        secaoTarefas.style.display = 'block';
+    } else {
+        secaoLogin.style.display = 'flex';
+        secaoTarefas.style.display = 'none';
+    }
+}
+
+async function fazerLogin() {
+    const email = document.getElementById('emailLogin').value;
+    const password = document.getElementById('senhaLogin').value;
+
+    const { data, error } = await _supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+    });
+
+    if (error) {
+        alert('Erro ao entrar: ' + error.message);
+    } else {
+        alert('Login efetuado com sucesso!');
+        controlarInterface(data.session);
+    }
+}
+
+async function fazerLogout() {
+    await _supabase.auth.signOut();
+    controlarInterface(null);
+    alert('Sessão terminada.');
+}
+
+// Procurar as tarefas salvas na base de dados (Leitura pública)
 async function carregarTarefas() {
     const lista = document.getElementById('listaTarefas');
     lista.innerHTML = '<li>A carregar...</li>';
@@ -34,7 +76,7 @@ async function carregarTarefas() {
     });
 }
 
-// Função para guardar uma nova tarefa na base de dados
+// Guardar nova tarefa (Apenas para utilizadores autenticados)
 async function adicionarTarefa() {
     const input = document.getElementById('inputTarefa');
     const valor = input.value.trim();
@@ -50,12 +92,12 @@ async function adicionarTarefa() {
 
     if (error) {
         console.error('Erro ao guardar:', error);
-        alert('Erro ao guardar na base de dados.');
+        alert('Erro de permissão ou ao guardar na base de dados.');
     } else {
         input.value = '';
-        carregarTarefas(); // Atualiza a lista na tela
+        carregarTarefas();
     }
 }
 
 // Executa ao carregar a página
-carregarTarefas();
+verificarSessao();
