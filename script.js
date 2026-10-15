@@ -3,9 +3,10 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let listaProdutosGlobal = [];
-let carrinho = []; // Armazena { id, nome, preco, quantidade }
+let carrinho = [];
 let totalVendasConcluidas = 0;
 let receitaTotalAcumulada = 0;
+let usuarioAdmin = false;
 
 async function init() {
     await verificarSessao();
@@ -14,6 +15,7 @@ async function init() {
 
 async function verificarSessao() {
     const { data: { session } } = await _supabase.auth.getSession();
+    usuarioAdmin = !!session;
     renderHeader(session);
 }
 
@@ -68,17 +70,19 @@ async function fazerLogin() {
     if (error) {
         alert('Erro ao entrar: ' + error.message);
     } else {
+        usuarioAdmin = true;
         renderHeader(data.session);
         fecharModalAdmin();
-        carregarProdutos();
+        renderGrid(listaProdutosGlobal);
     }
 }
 
 async function fazerLogout() {
     await _supabase.auth.signOut();
+    usuarioAdmin = false;
     renderHeader(null);
     fecharModalAdmin();
-    carregarProdutos();
+    renderGrid(listaProdutosGlobal);
 }
 
 async function carregarProdutos() {
@@ -100,7 +104,6 @@ async function carregarProdutos() {
 
     listaProdutosGlobal = data || [];
     
-    // Atualiza o contador de produtos exclusivo para o admin
     const totalAdminEl = document.getElementById('totalProdutosAdmin');
     if (totalAdminEl) totalAdminEl.textContent = `${listaProdutosGlobal.length} artigos`;
 
@@ -118,53 +121,49 @@ function renderGrid(produtos) {
         return;
     }
 
-    _supabase.auth.getSession().then(({ data: { session } }) => {
-        const isAdmin = !!session;
+    produtos.forEach(p => {
+        const nome = p.texto || 'Artigo exclusivo';
+        const precoNum = parseFloat(p.preco) || 0;
+        const precoStr = p.preco ? `${precoNum.toFixed(2)} €` : 'Sob consulta';
+        const precoAntigo = p.preco_antigo ? `${parseFloat(p.preco_antigo).toFixed(2)} €` : null;
+        const imagem = p.imagem || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500';
+        const likes = p.likes || 0;
+        const carrinhoCount = p.carrinho_count || 0;
 
-        produtos.forEach(p => {
-            const nome = p.texto || 'Artigo exclusivo';
-            const precoNum = parseFloat(p.preco) || 0;
-            const precoStr = p.preco ? `${precoNum.toFixed(2)} €` : 'Sob consulta';
-            const precoAntigo = p.preco_antigo ? `${parseFloat(p.preco_antigo).toFixed(2)} €` : null;
-            const imagem = p.imagem || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500';
-            const likes = p.likes || 0;
-            const carrinhoCount = p.carrinho_count || 0;
-
-            const card = document.createElement('div');
-            card.className = 'card-produto';
-            card.innerHTML = `
-                <div class="img-container">
-                    ${precoAntigo ? '<span class="promo-badge-tag">PROMOÇÃO</span>' : ''}
-                    <img src="${imagem}" alt="${nome}" onerror="this.src='https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500'">
-                </div>
-                <div class="card-body">
-                    <div>
-                        <h3 class="card-title">${nome}</h3>
-                        <div class="price-container">
-                            <span class="card-price">${precoStr}</span>
-                            ${precoAntigo ? `<span class="card-old-price">${precoAntigo}</span>` : ''}
-                        </div>
-                    </div>
-
-                    <div class="product-metrics">
-                        <span class="metric-item" onclick="darLike(${p.id})">
-                            ♥ <span id="like-count-${p.id}">${likes}</span> gostos
-                        </span>
-                        <span class="metric-item">
-                            🛍️ <span id="cart-count-${p.id}">${carrinhoCount}</span> no carrinho
-                        </span>
-                    </div>
-
-                    <div class="card-actions-row">
-                        <button class="btn btn-dark btn-block" onclick="adicionarAoCarrinho(${p.id}, '${nome.replace(/'/g, "\\'")}', ${precoNum})">
-                            Adicionar
-                        </button>
-                        ${isAdmin ? `<button class="btn btn-danger-soft" onclick="excluirProduto(${p.id})" title="Excluir produto">✕</button>` : ''}
+        const card = document.createElement('div');
+        card.className = 'card-produto';
+        card.innerHTML = `
+            <div class="img-container">
+                ${precoAntigo ? '<span class="promo-badge-tag">PROMOÇÃO</span>' : ''}
+                <img src="${imagem}" alt="${nome}" onerror="this.src='https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500'">
+            </div>
+            <div class="card-body">
+                <div>
+                    <h3 class="card-title">${nome}</h3>
+                    <div class="price-container">
+                        <span class="card-price">${precoStr}</span>
+                        ${precoAntigo ? `<span class="card-old-price">${precoAntigo}</span>` : ''}
                     </div>
                 </div>
-            `;
-            grid.appendChild(card);
-        });
+
+                <div class="product-metrics">
+                    <span class="metric-item" onclick="darLike(${p.id})">
+                        ♥ <span id="like-count-${p.id}">${likes}</span> gostos
+                    </span>
+                    <span class="metric-item">
+                        🛍️ <span id="cart-count-${p.id}">${carrinhoCount}</span> no carrinho
+                    </span>
+                </div>
+
+                <div class="card-actions-row">
+                    <button class="btn btn-dark btn-block" onclick="adicionarAoCarrinho(${p.id}, '${nome.replace(/'/g, "\\'")}', ${precoNum})">
+                        Adicionar
+                    </button>
+                    ${usuarioAdmin ? `<button class="btn btn-danger-soft" onclick="excluirProduto(${p.id})" title="Excluir produto">✕</button>` : ''}
+                </div>
+            </div>
+        `;
+        grid.appendChild(card);
     });
 }
 
@@ -189,7 +188,6 @@ async function darLike(id) {
 }
 
 function adicionarAoCarrinho(id, nome, preco) {
-    // Procura se o produto já existe no carrinho
     const itemExistente = carrinho.find(item => item.id === id);
     if (itemExistente) {
         itemExistente.quantidade += 1;
@@ -197,11 +195,9 @@ function adicionarAoCarrinho(id, nome, preco) {
         carrinho.push({ id, nome, preco, quantidade: 1 });
     }
 
-    // Atualiza contador total de itens na navbar
     const totalItensCarrinho = carrinho.reduce((acc, item) => acc + item.quantidade, 0);
     document.getElementById('contadorCarrinho').textContent = totalItensCarrinho;
 
-    // Atualiza contador visual de pessoas no carrinho na base de dados
     const produto = listaProdutosGlobal.find(p => p.id === id);
     if (produto) {
         produto.carrinho_count = (produto.carrinho_count || 0) + 1;
