@@ -57,7 +57,7 @@
             <!-- Visível se LOGADO -->
             <div id="formCadastroView" style="display: none;">
                 <h2>Gestão da Loja</h2>
-                <p class="subtitle">Adicionar novo produto e consultar vendas</p>
+                <p class="subtitle">Total de artigos no catálogo: <strong id="totalProdutosAdmin">0</strong></p>
 
                 <!-- Quadro de Vendas Resumo -->
                 <div class="sales-dashboard-card">
@@ -106,7 +106,7 @@
                 <button class="btn-close" onclick="fecharCarrinho()">&times;</button>
             </div>
             <div id="listaItensCarrinho" class="drawer-body">
-                <!-- Itens do carrinho aqui -->
+                <!-- Itens agrupados do carrinho aqui -->
             </div>
             <div class="drawer-footer">
                 <div class="drawer-total">
@@ -125,7 +125,6 @@
                 <h2>Coleção em Destaque</h2>
                 <p class="section-subtitle">Peças selecionadas com exclusividade</p>
             </div>
-            <span id="totalProdutos" class="badge-pill">0 artigos</span>
         </div>
 
         <div id="gridProdutos" class="grid-produtos">
