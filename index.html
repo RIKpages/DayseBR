@@ -3,49 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minha Loja Online</title>
+    <title>Minha Loja Online | E-Commerce</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Ícones Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
-    <header class="header">
-        <h1>🛍️ Minha Loja Virtual</h1>
-        <div id="statusLogin">
-            <!-- Botão de Login/Logout dinâmico -->
+
+    <!-- Header Principal -->
+    <header class="navbar">
+        <div class="nav-container">
+            <div class="brand">
+                <span class="logo-icon">🛍️</span>
+                <h1>TechStore</h1>
+            </div>
+
+            <div class="search-box">
+                <input type="text" id="inputBusca" oninput="filtrarProdutos()" placeholder="Buscar produtos...">
+            </div>
+
+            <div class="nav-actions" id="statusLogin">
+                <!-- Botão dinâmico gerado pelo JS -->
+            </div>
         </div>
     </header>
 
-    <main class="container">
-        <!-- Formulário de Login Modal/Oculto -->
-        <section id="secaoLogin" class="card" style="display: none;">
-            <h2>Área do Administrador</h2>
-            <div class="form-group">
-                <input type="email" id="emailLogin" placeholder="Email do administrador">
-                <input type="password" id="senhaLogin" placeholder="Palavra-passe">
-                <button onclick="fazerLogin()" class="btn-success">Entrar</button>
-            </div>
-        </section>
+    <!-- Modal do Painel de Login / Administrador -->
+    <div id="modalAdmin" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <button class="btn-close" onclick="fecharModalAdmin()">&times;</button>
+            
+            <!-- Visível se NÃO logado -->
+            <div id="formLoginView">
+                <h2>🔐 Acesso Restrito</h2>
+                <p class="subtitle">Inicie sessão para gerir a loja</p>
 
-        <!-- Painel de Adicionar Produtos (Só visível para Admin logado) -->
-        <section id="secaoAdmin" class="card admin-panel" style="display: none;">
-            <h2>➕ Adicionar Novo Produto</h2>
-            <div class="form-group">
-                <input type="text" id="nomeProduto" placeholder="Nome do produto...">
-                <input type="text" id="precoProduto" placeholder="Preço (ex: 19.99 €)">
-                <button onclick="adicionarProduto()" class="btn-primary">Cadastrar Produto</button>
-            </div>
-            <button onclick="fazerLogout()" class="btn-danger btn-sm">Sair do Modo Admin</button>
-        </section>
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="emailLogin" placeholder="exemplo@email.com">
+                </div>
 
-        <!-- Catálogo de Produtos da Loja -->
-        <section class="catalogo-secao">
-            <h2>Catálogo de Produtos</h2>
-            <div id="gridProdutos" class="grid-produtos">
-                <!-- Os produtos vão aparecer em cartões aqui -->
+                <div class="input-group">
+                    <label>Palavra-passe</label>
+                    <input type="password" id="senhaLogin" placeholder="••••••••">
+                </div>
+
+                <button onclick="fazerLogin()" class="btn btn-primary btn-block">Entrar na Conta</button>
             </div>
-        </section>
+
+            <!-- Visível se LOGADO -->
+            <div id="formCadastroView" style="display: none;">
+                <h2>➕ Adicionar Produto</h2>
+                <p class="subtitle">Adicione um novo item ao catálogo público</p>
+
+                <div class="input-group">
+                    <label>Nome do Produto *</label>
+                    <input type="text" id="nomeProduto" placeholder="Ex: Teclado Mecânico RGB">
+                </div>
+
+                <div class="input-group">
+                    <label>Preço (€) *</label>
+                    <input type="text" id="precoProduto" placeholder="Ex: 49.90">
+                </div>
+
+                <div class="input-group">
+                    <label>URL da Imagem (Opcional)</label>
+                    <input type="url" id="imagemProduto" placeholder="https://exemplo.com/imagem.jpg">
+                </div>
+
+                <button onclick="adicionarProduto()" class="btn btn-success btn-block">Guardar Produto</button>
+                <button onclick="fazerLogout()" class="btn btn-danger btn-block btn-outline" style="margin-top: 10px;">Terminar Sessão</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conteúdo Principal -->
+    <main class="main-content">
+        <div class="section-header">
+            <h2>Catálogo em Destaque</h2>
+            <span id="totalProdutos" class="badge">0 Produtos</span>
+        </div>
+
+        <div id="gridProdutos" class="grid-produtos">
+            <!-- Cards gerados via JS -->
+        </div>
     </main>
 
-    <!-- SDK do Supabase -->
+    <!-- SDK Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="script.js"></script>
 </body>
