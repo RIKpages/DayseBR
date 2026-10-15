@@ -260,7 +260,7 @@ function renderizarCarrinho() {
 function finalizarCompra() {
     if (carrinho.length === 0) return alert('O carrinho está vazio!');
 
-    const numeroWhatsApp = "351912345678"; // Altere para o seu número com código do país
+    const numeroWhatsApp = "5531991096423"; // Altere para o seu número com código do país
 
     let mensagem = "Olá! Gostaria de fazer a seguinte encomenda:%0A%0A";
     let totalGeral = 0;
