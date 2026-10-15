@@ -14,9 +14,13 @@ async function init() {
 }
 
 async function verificarSessao() {
-    const { data: { session } } = await _supabase.auth.getSession();
-    usuarioAdmin = !!session;
-    renderHeader(session);
+    try {
+        const { data: { session } } = await _supabase.auth.getSession();
+        usuarioAdmin = !!session;
+        renderHeader(session);
+    } catch (e) {
+        console.error("Erro na sessão:", e);
+    }
 }
 
 function renderHeader(session) {
@@ -43,25 +47,34 @@ function renderHeader(session) {
 }
 
 function abrirModalAdmin() {
-    document.getElementById('modalAdmin').style.display = 'flex';
+    const modal = document.getElementById('modalAdmin');
+    if (modal) modal.style.display = 'flex';
 }
 
 function fecharModalAdmin() {
-    document.getElementById('modalAdmin').style.display = 'none';
+    const modal = document.getElementById('modalAdmin');
+    if (modal) modal.style.display = 'none';
 }
 
 function abrirCarrinho() {
-    document.getElementById('modalCarrinho').style.display = 'flex';
+    const modal = document.getElementById('modalCarrinho');
+    if (modal) modal.style.display = 'flex';
     renderizarCarrinho();
 }
 
 function fecharCarrinho() {
-    document.getElementById('modalCarrinho').style.display = 'none';
+    const modal = document.getElementById('modalCarrinho');
+    if (modal) modal.style.display = 'none';
 }
 
 async function fazerLogin() {
-    const email = document.getElementById('emailLogin').value.trim();
-    const password = document.getElementById('senhaLogin').value;
+    const emailInput = document.getElementById('emailLogin');
+    const senhaInput = document.getElementById('senhaLogin');
+
+    if (!emailInput || !senhaInput) return;
+
+    const email = emailInput.value.trim();
+    const password = senhaInput.value;
 
     if (!email || !password) return alert('Preencha todos os campos.');
 
@@ -74,6 +87,7 @@ async function fazerLogin() {
         renderHeader(data.session);
         fecharModalAdmin();
         renderGrid(listaProdutosGlobal);
+        alert('Sessão iniciada com sucesso!');
     }
 }
 
@@ -168,7 +182,10 @@ function renderGrid(produtos) {
 }
 
 function filtrarProdutos() {
-    const termo = document.getElementById('inputBusca').value.toLowerCase();
+    const inputBusca = document.getElementById('inputBusca');
+    if (!inputBusca) return;
+
+    const termo = inputBusca.value.toLowerCase();
     const filtrados = listaProdutosGlobal.filter(p => 
         (p.texto && p.texto.toLowerCase().includes(termo))
     );
@@ -196,7 +213,8 @@ function adicionarAoCarrinho(id, nome, preco) {
     }
 
     const totalItensCarrinho = carrinho.reduce((acc, item) => acc + item.quantidade, 0);
-    document.getElementById('contadorCarrinho').textContent = totalItensCarrinho;
+    const contadorEl = document.getElementById('contadorCarrinho');
+    if (contadorEl) contadorEl.textContent = totalItensCarrinho;
 
     const produto = listaProdutosGlobal.find(p => p.id === id);
     if (produto) {
@@ -205,11 +223,15 @@ function adicionarAoCarrinho(id, nome, preco) {
         const el = document.getElementById(`cart-count-${id}`);
         if (el) el.textContent = produto.carrinho_count;
     }
+
+    alert(`"${nome}" foi adicionado ao carrinho.`);
 }
 
 function renderizarCarrinho() {
     const lista = document.getElementById('listaItensCarrinho');
     const totalEl = document.getElementById('carrinhoTotalPreco');
+    if (!lista || !totalEl) return;
+
     lista.innerHTML = '';
 
     if (carrinho.length === 0) {
@@ -238,35 +260,30 @@ function renderizarCarrinho() {
 function finalizarCompra() {
     if (carrinho.length === 0) return alert('O carrinho está vazio!');
 
-    // 1. Número do WhatsApp da loja (exemplo com código de país: 351 para Portugal ou 55 para Brasil)
-    const numeroWhatsApp = "5531991096423"; // <--- ALTERE PARA O SEU NÚMERO AQUI
+    const numeroWhatsApp = "5531991096423"; // Altere para o seu número com código do país
 
-    // 2. Montar o texto da mensagem com os itens do carrinho
     let mensagem = "Olá! Gostaria de fazer a seguinte encomenda:%0A%0A";
-    
     let totalGeral = 0;
+    
     carrinho.forEach((item) => {
         const subtotal = item.preco * item.quantidade;
         totalGeral += subtotal;
         mensagem += `- ${item.nome} x(${item.quantidade}) — ${subtotal.toFixed(2)} €%0A`;
     });
 
-    mensagem += `%0A*Total da Encomenda: ${totalGeral.toFixed(2)} €*%0A%0APor favor, confirme os detalhes para prosseguirmos com o pagamento.`;
+    mensagem += `%0A*Total da Encomenda: ${totalGeral.toFixed(2)} €*%0A%0APor favor, confirme os detalhes.`;
 
-    // 3. Atualizar o quadro de vendas do Administrador localmente
     totalVendasConcluidas += 1;
     receitaTotalAcumulada += totalGeral;
     atualizarDashboardVendas();
 
-    // 4. Abrir o WhatsApp com a mensagem formatada
     const urlWhatsApp = `https://wa.me/${numeroWhatsApp}?text=${mensagem}`;
     window.open(urlWhatsApp, '_blank');
 
-    // 5. Limpar o carrinho e fechar a gaveta
     carrinho = [];
-    document.getElementById('contadorCarrinho').textContent = '0';
+    const contadorEl = document.getElementById('contadorCarrinho');
+    if (contadorEl) contadorEl.textContent = '0';
     fecharCarrinho();
-}
 }
 
 function atualizarDashboardVendas() {
@@ -277,10 +294,17 @@ function atualizarDashboardVendas() {
 }
 
 async function adicionarProduto() {
-    const nome = document.getElementById('nomeProduto').value.trim();
-    const preco = document.getElementById('precoProduto').value.trim();
-    const precoAntigo = document.getElementById('precoAntigoProduto').value.trim();
-    const imagem = document.getElementById('imagemProduto').value.trim();
+    const nomeInput = document.getElementById('nomeProduto');
+    const precoInput = document.getElementById('precoProduto');
+    const precoAntigoInput = document.getElementById('precoAntigoProduto');
+    const imagemInput = document.getElementById('imagemProduto');
+
+    if (!nomeInput) return;
+
+    const nome = nomeInput.value.trim();
+    const preco = precoInput ? precoInput.value.trim() : '';
+    const precoAntigo = precoAntigoInput ? precoAntigoInput.value.trim() : '';
+    const imagem = imagemInput ? imagemInput.value.trim() : '';
 
     if (!nome) return alert('Informe o nome do artigo.');
 
@@ -294,10 +318,10 @@ async function adicionarProduto() {
     if (error) {
         alert('Erro ao publicar: ' + error.message);
     } else {
-        document.getElementById('nomeProduto').value = '';
-        document.getElementById('precoProduto').value = '';
-        document.getElementById('precoAntigoProduto').value = '';
-        document.getElementById('imagemProduto').value = '';
+        nomeInput.value = '';
+        if (precoInput) precoInput.value = '';
+        if (precoAntigoInput) precoAntigoInput.value = '';
+        if (imagemInput) imagemInput.value = '';
         fecharModalAdmin();
         carregarProdutos();
     }
@@ -315,4 +339,5 @@ async function excluirProduto(id) {
     }
 }
 
+// Inicia a aplicação
 init();
