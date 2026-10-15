@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TechStore | Minha Loja Online</title>
+    <title>Atelier & Co. | Loja Oficial</title>
     <link rel="stylesheet" href="./style.css">
 </head>
 <body>
@@ -12,35 +12,38 @@
     <header class="navbar">
         <div class="nav-container">
             <div class="brand">
-                <span style="font-size: 1.5rem;">🛍️</span>
-                <h1>TechStore</h1>
+                <span class="brand-badge">✦</span>
+                <h1>Atelier</h1>
             </div>
 
             <div class="search-box">
-                <input type="text" id="inputBusca" oninput="filtrarProdutos()" placeholder="Buscar produtos...">
+                <input type="text" id="inputBusca" oninput="filtrarProdutos()" placeholder="Pesquisar artigos...">
             </div>
 
-            <div class="nav-actions" id="statusLogin">
-                <button onclick="abrirModalAdmin()" class="btn btn-outline">
-                    Entrar como Admin
+            <div class="nav-actions">
+                <button onclick="abrirCarrinho()" class="btn btn-secondary btn-icon">
+                    🛒 Carrinho <span id="contadorCarrinho" class="counter-badge">0</span>
                 </button>
+                <div id="statusLogin">
+                    <button onclick="abrirModalAdmin()" class="btn btn-outline">Área Admin</button>
+                </div>
             </div>
         </div>
     </header>
 
-    <!-- Modal do Painel de Login / Administrador -->
+    <!-- Modal do Painel de Login / Administrador & Quadro de Vendas -->
     <div id="modalAdmin" class="modal-overlay" style="display: none;">
         <div class="modal-card">
             <button class="btn-close" onclick="fecharModalAdmin()">&times;</button>
             
             <!-- Visível se NÃO logado -->
             <div id="formLoginView">
-                <h2>🔐 Acesso Restrito</h2>
-                <p class="subtitle">Inicie sessão para gerir a loja</p>
+                <h2>Acesso Restrito</h2>
+                <p class="subtitle">Introduza as credenciais para gerir o catálogo</p>
 
                 <div class="input-group">
                     <label>Email</label>
-                    <input type="email" id="emailLogin" placeholder="exemplo@email.com">
+                    <input type="email" id="emailLogin" placeholder="admin@atelier.com">
                 </div>
 
                 <div class="input-group">
@@ -48,31 +51,69 @@
                     <input type="password" id="senhaLogin" placeholder="••••••••">
                 </div>
 
-                <button onclick="fazerLogin()" class="btn btn-primary btn-block">Entrar na Conta</button>
+                <button onclick="fazerLogin()" class="btn btn-dark btn-block">Entrar na Conta</button>
             </div>
 
             <!-- Visível se LOGADO -->
             <div id="formCadastroView" style="display: none;">
-                <h2>➕ Adicionar Produto</h2>
-                <p class="subtitle">Adicione um novo item ao catálogo público</p>
+                <h2>Gestão da Loja</h2>
+                <p class="subtitle">Adicionar novo produto e consultar vendas</p>
 
-                <div class="input-group">
+                <!-- Quadro de Vendas Resumo -->
+                <div class="sales-dashboard-card">
+                    <div class="sales-metric">
+                        <span>Total de Vendas</span>
+                        <strong id="adminTotalVendas">0</strong>
+                    </div>
+                    <div class="sales-metric">
+                        <span>Receita Estimada</span>
+                        <strong id="adminReceitaTotal">0.00 €</strong>
+                    </div>
+                </div>
+
+                <div class="input-group" style="margin-top: 15px;">
                     <label>Nome do Produto *</label>
-                    <input type="text" id="nomeProduto" placeholder="Ex: Teclado Mecânico RGB">
+                    <input type="text" id="nomeProduto" placeholder="Ex: Casaco de Lã Minimalista">
+                </div>
+
+                <div class="form-row">
+                    <div class="input-group">
+                        <label>Preço Atual (€) *</label>
+                        <input type="text" id="precoProduto" placeholder="Ex: 89.00">
+                    </div>
+                    <div class="input-group">
+                        <label>Preço Antigo (Riscado)</label>
+                        <input type="text" id="precoAntigoProduto" placeholder="Ex: 120.00">
+                    </div>
                 </div>
 
                 <div class="input-group">
-                    <label>Preço (€) *</label>
-                    <input type="text" id="precoProduto" placeholder="Ex: 49.90">
+                    <label>URL da Imagem</label>
+                    <input type="url" id="imagemProduto" placeholder="https://exemplo.com/foto.jpg">
                 </div>
 
-                <div class="input-group">
-                    <label>URL da Imagem (Opcional)</label>
-                    <input type="url" id="imagemProduto" placeholder="https://exemplo.com/imagem.jpg">
-                </div>
+                <button onclick="adicionarProduto()" class="btn btn-dark btn-block">Publicar Artigo</button>
+                <button onclick="fazerLogout()" class="btn btn-danger-soft btn-block" style="margin-top: 10px;">Terminar Sessão</button>
+            </div>
+        </div>
+    </div>
 
-                <button onclick="adicionarProduto()" class="btn btn-success btn-block">Guardar Produto</button>
-                <button onclick="fazerLogout()" class="btn btn-danger btn-block btn-outline" style="margin-top: 10px;">Terminar Sessão</button>
+    <!-- Gaveta do Carrinho -->
+    <div id="modalCarrinho" class="modal-overlay" style="display: none;">
+        <div class="modal-card drawer-card">
+            <div class="drawer-header">
+                <h2>O seu Carrinho</h2>
+                <button class="btn-close" onclick="fecharCarrinho()">&times;</button>
+            </div>
+            <div id="listaItensCarrinho" class="drawer-body">
+                <!-- Itens do carrinho aqui -->
+            </div>
+            <div class="drawer-footer">
+                <div class="drawer-total">
+                    <span>Total:</span>
+                    <strong id="carrinhoTotalPreco">0.00 €</strong>
+                </div>
+                <button onclick="finalizarCompra()" class="btn btn-dark btn-block">Concluir Encomenda</button>
             </div>
         </div>
     </div>
@@ -80,8 +121,11 @@
     <!-- Conteúdo Principal -->
     <main class="main-content">
         <div class="section-header">
-            <h2>Catálogo em Destaque</h2>
-            <span id="totalProdutos" class="badge">0 Produtos</span>
+            <div>
+                <h2>Coleção em Destaque</h2>
+                <p class="section-subtitle">Peças selecionadas com exclusividade</p>
+            </div>
+            <span id="totalProdutos" class="badge-pill">0 artigos</span>
         </div>
 
         <div id="gridProdutos" class="grid-produtos">
