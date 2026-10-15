@@ -91,6 +91,7 @@ async function carregarProdutos() {
         .order('id', { ascending: false });
 
     if (error) {
+        console.error(error);
         grid.innerHTML = '<p style="color: var(--accent-red);">Erro ao carregar o catálogo.</p>';
         return;
     }
