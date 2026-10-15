@@ -1,19 +1,30 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meu Teste com Banco de Dados</title>
+    <title>Meu Site com Banco de Dados Seguro</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <h1>Meu Site no GitHub Pages</h1>
-        <p>Teste de conexão com Banco de Dados Simples</p>
+        <p>Tarefas protegidas por Autenticação</p>
 
-        <div class="form-group">
-            <input type="text" id="inputTarefa" placeholder="Digite uma nova tarefa...">
-            <button onclick="adicionarTarefa()">Adicionar</button>
+        <!-- Área de Login (Aparece se não estiver logado) -->
+        <div id="secaoLogin" class="form-group" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
+            <input type="email" id="emailLogin" placeholder="O seu email">
+            <input type="password" id="senhaLogin" placeholder="Palavra-passe">
+            <button onclick="fazerLogin()" style="background-color: #28a745;">Entrar</button>
+        </div>
+
+        <!-- Área de Tarefas (Só aparece após o login) -->
+        <div id="secaoTarefas" style="display: none;">
+            <div class="form-group" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="inputTarefa" placeholder="Digite uma nova tarefa...">
+                <button onclick="adicionarTarefa()">Adicionar</button>
+            </div>
+            <button onclick="fazerLogout()" style="background-color: #dc3545; margin-bottom: 20px; width: 100%;">Sair da Conta</button>
         </div>
 
         <ul id="listaTarefas">
@@ -23,7 +34,6 @@
 
     <!-- SDK do Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- O seu script -->
     <script src="script.js"></script>
 </body>
 </html>
