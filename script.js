@@ -20,16 +20,30 @@ async function init() {
 }
 
 async function salvarIdentificacaoCliente() {
-    const inputEmail = document.getElementById('emailLead');
     const emailInputModal = document.getElementById('emailClienteInput');
-    const aceitaOfertas = document.getElementById('aceitaOfertas').checked;
+    const aceitaOfertasCheckbox = document.getElementById('aceitaOfertas');
 
-    const email = emailInputModal ? emailInputModal.value.trim() : '';
+    if (!emailInputModal) return;
+
+    const email = emailInputModal.value.trim();
     const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     
     if (!regexEmail.test(email)) {
         return alert('Por favor, introduza um endereço de email válido.');
     }
+
+    // Grava na tabela 'leads' do Supabase se o cliente aceitou receber ofertas
+    if (aceitaOfertasCheckbox && aceitaOfertasCheckbox.checked) {
+        const { error } = await _supabase.from('leads').insert([{ email: email }]);
+        if (error && error.code !== '23505') { // Ignora erro se o email já estiver duplicado
+            console.error('Erro ao guardar lead:', error.message);
+        }
+    }
+
+    // Salva no navegador e fecha o modal
+    localStorage.setItem('atelier_cliente_email', email);
+    document.getElementById('modalCliente').style.display = 'none';
+}
 
     // Grava na tabela 'leads' se aceitou receber ofertas
     if (aceitaOfertas) {
