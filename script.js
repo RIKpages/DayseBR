@@ -12,10 +12,15 @@ async function init() {
     const clienteLogado = localStorage.getItem('atelier_cliente_email');
     const modalCliente = document.getElementById('modalCliente');
     
-    if (!clienteLogado && modalCliente) {
-        setTimeout(() => {
-            modalCliente.style.display = 'flex';
-        }, 1500);
+    // Se já estiver logado, garante que o modal de cliente fica totalmente oculto
+    if (clienteLogado) {
+        if (modalCliente) modalCliente.style.display = 'none';
+    } else {
+        if (modalCliente) {
+            setTimeout(() => {
+                modalCliente.style.display = 'flex';
+            }, 1000);
+        }
     }
 
     await verificarSessao();
@@ -294,7 +299,7 @@ function renderizarCarrinho() {
 function finalizarCompra() {
     if (carrinho.length === 0) return alert('O carrinho está vazio!');
 
-    const numeroWhatsApp = "5511999999999"; // Altere para o seu número WhatsApp com DDD
+    const numeroWhatsApp = "5511999999999"; 
     const emailCliente = localStorage.getItem('atelier_cliente_email') || 'Não informado';
 
     let mensagem = `Olá! Gostaria de fazer a seguinte encomenda:%0A(Cliente: ${emailCliente})%0A%0A`;
