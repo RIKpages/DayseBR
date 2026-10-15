@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -67,7 +67,7 @@
                     </div>
                     <div class="sales-metric">
                         <span>Receita Estimada</span>
-                        <strong id="adminReceitaTotal">0.00 €</strong>
+                        <strong id="adminReceitaTotal">R$ 0,00</strong>
                     </div>
                 </div>
 
@@ -78,7 +78,7 @@
 
                 <div class="form-row">
                     <div class="input-group">
-                        <label>Preço Atual (€) *</label>
+                        <label>Preço Atual (R$) *</label>
                         <input type="text" id="precoProduto" placeholder="Ex: 89.00">
                     </div>
                     <div class="input-group">
@@ -111,7 +111,7 @@
             <div class="drawer-footer">
                 <div class="drawer-total">
                     <span>Total:</span>
-                    <strong id="carrinhoTotalPreco">0.00 €</strong>
+                    <strong id="carrinhoTotalPreco">R$ 0,00</strong>
                 </div>
                 <button onclick="finalizarCompra()" class="btn btn-dark btn-block">Concluir Encomenda</button>
             </div>
@@ -130,6 +130,18 @@
         <div id="gridProdutos" class="grid-produtos">
             <!-- Cards gerados via JS -->
         </div>
+
+        <!-- Secção de Newsletter / Leads -->
+        <section class="newsletter-section">
+            <div class="newsletter-box">
+                <h3>Junte-se ao nosso Círculo Exclusivo</h3>
+                <p>Subscreva para receber acesso antecipado a saldos, novidades e promoções privadas.</p>
+                <div class="newsletter-form">
+                    <input type="email" id="emailLead" placeholder="Introduza o seu melhor email...">
+                    <button onclick="subscreverNewsletter()" class="btn btn-dark">Subscrever</button>
+                </div>
+            </div>
+        </section>
     </main>
 
     <!-- SDK Supabase -->
