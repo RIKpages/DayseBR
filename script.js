@@ -1,36 +1,41 @@
 const SUPABASE_URL = 'https://finmivasfcnnJntfaeei.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_1GrP5ip9yUycdbQ_JnvDdQ_b6_vxJFK';
+// Usa a tua chave anon pública que começa por eyJ...
+const SUPABASE_KEY = 'sb_publishable_1GrP5ip9yUycdbQ_JnvDdQ_b6_vxJFK'; 
 
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Verificar se já existe uma sessão ativa
+// Controla a exibição com base na sessão de utilizador
 async function verificarSessao() {
     const { data: { session } } = await _supabase.auth.getSession();
     controlarInterface(session);
-    carregarTarefas();
+    carregarProdutos();
 }
 
 function controlarInterface(session) {
+    const secaoAdmin = document.getElementById('secaoAdmin');
     const secaoLogin = document.getElementById('secaoLogin');
-    const secaoTarefas = document.getElementById('secaoTarefas');
+    const statusLogin = document.getElementById('statusLogin');
 
     if (session) {
+        secaoAdmin.style.display = 'block';
         secaoLogin.style.display = 'none';
-        secaoTarefas.style.display = 'block';
+        statusLogin.innerHTML = `<button onclick="fazerLogout()" class="btn-danger btn-sm">Sair (${session.user.email})</button>`;
     } else {
-        secaoLogin.style.display = 'flex';
-        secaoTarefas.style.display = 'none';
+        secaoAdmin.style.display = 'none';
+        statusLogin.innerHTML = `<button onclick="toggleLogin()" class="btn-secondary">Área Admin</button>`;
     }
 }
 
+function toggleLogin() {
+    const secaoLogin = document.getElementById('secaoLogin');
+    secaoLogin.style.display = secaoLogin.style.display === 'none' ? 'block' : 'none';
+}
+
 async function fazerLogin() {
-    const email = document.getElementById('emailLogin').value;
+    const email = document.getElementById('emailLogin').value.trim();
     const password = document.getElementById('senhaLogin').value;
 
-    const { data, error } = await _supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
-    });
+    const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
         alert('Erro ao entrar: ' + error.message);
@@ -43,61 +48,66 @@ async function fazerLogin() {
 async function fazerLogout() {
     await _supabase.auth.signOut();
     controlarInterface(null);
-    alert('Sessão terminada.');
 }
 
-// Procurar as tarefas salvas na base de dados (Leitura pública)
-async function carregarTarefas() {
-    const lista = document.getElementById('listaTarefas');
-    lista.innerHTML = '<li>A carregar...</li>';
+// Carregar Produtos na Loja (Público)
+async function carregarProdutos() {
+    const grid = document.getElementById('gridProdutos');
+    grid.innerHTML = '<p>A carregar produtos...</p>';
 
-    const { data: tarefas, error } = await _supabase
-        .from('tarefas')
+    const { data: produtos, error } = await _supabase
+        .from('tarefas') // Reutilizando a tabela existente
         .select('*')
-        .order('id', { ascending: true });
+        .order('id', { ascending: false });
 
     if (error) {
-        console.error('Erro ao carregar:', error);
-        lista.innerHTML = '<li>Erro ao carregar dados.</li>';
+        console.error(error);
+        grid.innerHTML = '<p>Erro ao carregar a loja.</p>';
         return;
     }
 
-    lista.innerHTML = '';
-    
-    if (!tarefas || tarefas.length === 0) {
-        lista.innerHTML = '<li>Sem tarefas registadas.</li>';
+    grid.innerHTML = '';
+
+    if (!produtos || produtos.length === 0) {
+        grid.innerHTML = '<p>Nenhum produto disponível na loja no momento.</p>';
         return;
     }
 
-    tarefas.forEach(t => {
-        const item = document.createElement('li');
-        item.textContent = t.texto;
-        lista.appendChild(item);
+    produtos.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'card-produto';
+        card.innerHTML = `
+            <div>
+                <h3>📦 ${p.texto}</h3>
+                <p class="preco">${p.preco ? p.preco : 'Preço sob consulta'}</p>
+            </div>
+            <button class="btn-comprar" onclick="alert('Item adicionado ao carrinho!')">Comprar</button>
+        `;
+        grid.appendChild(card);
     });
 }
 
-// Guardar nova tarefa (Apenas para utilizadores autenticados)
-async function adicionarTarefa() {
-    const input = document.getElementById('inputTarefa');
-    const valor = input.value.trim();
+// Cadastrar Produto (Apenas Logado)
+async function adicionarProduto() {
+    const nome = document.getElementById('nomeProduto').value.trim();
+    const preco = document.getElementById('precoProduto').value.trim();
 
-    if (valor === "") {
-        alert("Digite alguma coisa!");
+    if (!nome) {
+        alert("Digite o nome do produto!");
         return;
     }
 
     const { error } = await _supabase
         .from('tarefas')
-        .insert([{ texto: valor }]);
+        .insert([{ texto: nome, preco: preco }]);
 
     if (error) {
-        console.error('Erro ao guardar:', error);
-        alert('Erro de permissão ou ao guardar na base de dados.');
+        alert('Erro ao cadastrar produto: ' + error.message);
     } else {
-        input.value = '';
-        carregarTarefas();
+        document.getElementById('nomeProduto').value = '';
+        document.getElementById('precoProduto').value = '';
+        carregarProdutos();
     }
 }
 
-// Executa ao carregar a página
 verificarSessao();
