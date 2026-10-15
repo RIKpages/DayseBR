@@ -26,7 +26,6 @@ body {
     min-height: 100vh;
 }
 
-/* Navbar */
 .navbar {
     background-color: var(--bg-surface);
     border-bottom: 1px solid var(--border);
@@ -73,7 +72,6 @@ body {
     background-color: #fff;
 }
 
-/* Botões */
 .btn {
     padding: 10px 18px;
     border-radius: 8px;
@@ -96,7 +94,6 @@ body {
 .btn-outline:hover { background: var(--bg-primary); }
 .btn-block { width: 100%; }
 
-/* Layout Conteúdo */
 .main-content {
     max-width: 1200px;
     margin: 40px auto;
@@ -119,14 +116,12 @@ body {
     font-weight: 600;
 }
 
-/* Grid de Produtos */
 .grid-produtos {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 24px;
 }
 
-/* Cards de Produtos */
 .card-produto {
     background: var(--bg-surface);
     border-radius: var(--radius);
@@ -181,7 +176,6 @@ body {
     margin-bottom: 16px;
 }
 
-/* Modais */
 .modal-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
