@@ -1,11 +1,9 @@
 const SUPABASE_URL = 'https://finmivasfcnnJntfaeei.supabase.co';
-// Cole aqui a sua chave de API anon/public
-const SUPABASE_KEY = 'sb_publishable_1GrP5ip9yUycdbQ_JnvDdQ_b6_vxJFK';
+const SUPABASE_KEY = 'sb_publishable_1GrP5ip9yUycdbQ_JnvDdQ_b6_vXJFK';
 
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let listaProdutosGlobal = [];
 
-// Inicialização da Aplicação
 async function init() {
     await verificarSessao();
     await carregarProdutos();
@@ -18,37 +16,48 @@ async function verificarSessao() {
 
 function renderHeader(session) {
     const statusDiv = document.getElementById('statusLogin');
+    const formLoginView = document.getElementById('formLoginView');
+    const formCadastroView = document.getElementById('formCadastroView');
+
+    if (!statusDiv || !formLoginView || !formCadastroView) return;
+
     if (session) {
         statusDiv.innerHTML = `
             <button onclick="abrirModalAdmin()" class="btn btn-primary">
                 ⚙️ Admin
             </button>
         `;
-        document.getElementById('formLoginView').style.display = 'none';
-        document.getElementById('formCadastroView').style.display = 'block';
+        formLoginView.style.display = 'none';
+        formCadastroView.style.display = 'block';
     } else {
         statusDiv.innerHTML = `
             <button onclick="abrirModalAdmin()" class="btn btn-outline">
                 Entrar como Admin
             </button>
         `;
-        document.getElementById('formLoginView').style.display = 'block';
-        document.getElementById('formCadastroView').style.display = 'none';
+        formLoginView.style.display = 'block';
+        formCadastroView.style.display = 'none';
     }
 }
 
 function abrirModalAdmin() {
-    document.getElementById('modalAdmin').style.display = 'flex';
+    const modal = document.getElementById('modalAdmin');
+    if (modal) modal.style.display = 'flex';
 }
 
 function fecharModalAdmin() {
-    document.getElementById('modalAdmin').style.display = 'none';
+    const modal = document.getElementById('modalAdmin');
+    if (modal) modal.style.display = 'none';
 }
 
-// Autenticação
 async function fazerLogin() {
-    const email = document.getElementById('emailLogin').value.trim();
-    const password = document.getElementById('senhaLogin').value;
+    const emailInput = document.getElementById('emailLogin');
+    const senhaInput = document.getElementById('senhaLogin');
+    
+    if (!emailInput || !senhaInput) return;
+
+    const email = emailInput.value.trim();
+    const password = senhaInput.value;
 
     if (!email || !password) {
         alert('Por favor, preencha o email e a palavra-passe.');
@@ -61,6 +70,7 @@ async function fazerLogin() {
         alert('Erro ao entrar: ' + error.message);
     } else {
         renderHeader(data.session);
+        fecharModalAdmin();
         alert('Sessão iniciada com sucesso!');
     }
 }
@@ -71,9 +81,10 @@ async function fazerLogout() {
     fecharModalAdmin();
 }
 
-// Carregar Dados
 async function carregarProdutos() {
     const grid = document.getElementById('gridProdutos');
+    if (!grid) return;
+
     grid.innerHTML = '<p style="color: var(--text-muted);">A carregar os produtos...</p>';
 
     const { data, error } = await _supabase
@@ -88,12 +99,16 @@ async function carregarProdutos() {
     }
 
     listaProdutosGlobal = data || [];
-    document.getElementById('totalProdutos').textContent = `${listaProdutosGlobal.length} Produtos`;
+    const totalBadge = document.getElementById('totalProdutos');
+    if (totalBadge) totalBadge.textContent = `${listaProdutosGlobal.length} Produtos`;
+    
     renderGrid(listaProdutosGlobal);
 }
 
 function renderGrid(produtos) {
     const grid = document.getElementById('gridProdutos');
+    if (!grid) return;
+
     grid.innerHTML = '';
 
     if (produtos.length === 0) {
@@ -102,7 +117,6 @@ function renderGrid(produtos) {
     }
 
     produtos.forEach(p => {
-        // Garantia contra campos nulos
         const nome = p.texto || 'Produto sem nome';
         const preco = p.preco ? `${p.preco} €` : 'Preço sob consulta';
         const imagem = p.imagem || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500';
@@ -128,25 +142,32 @@ function renderGrid(produtos) {
 }
 
 function filtrarProdutos() {
-    const termo = document.getElementById('inputBusca').value.toLowerCase();
+    const inputBusca = document.getElementById('inputBusca');
+    if (!inputBusca) return;
+
+    const termo = inputBusca.value.toLowerCase();
     const filtrados = listaProdutosGlobal.filter(p => 
         (p.texto && p.texto.toLowerCase().includes(termo))
     );
     renderGrid(filtrados);
 }
 
-// Adicionar Novo Produto
 async function adicionarProduto() {
-    const nome = document.getElementById('nomeProduto').value.trim();
-    const preco = document.getElementById('precoProduto').value.trim();
-    const imagem = document.getElementById('imagemProduto').value.trim();
+    const nomeInput = document.getElementById('nomeProduto');
+    const precoInput = document.getElementById('precoProduto');
+    const imagemInput = document.getElementById('imagemProduto');
+
+    if (!nomeInput) return;
+
+    const nome = nomeInput.value.trim();
+    const preco = precoInput ? precoInput.value.trim() : '';
+    const imagem = imagemInput ? imagemInput.value.trim() : '';
 
     if (!nome) {
         alert('Por favor, informe o nome do produto.');
         return;
     }
 
-    // Objeto a guardar no Supabase
     const novoItem = { texto: nome };
     if (preco) novoItem.preco = preco;
     if (imagem) novoItem.imagem = imagem;
@@ -156,10 +177,9 @@ async function adicionarProduto() {
     if (error) {
         alert('Erro ao guardar: ' + error.message);
     } else {
-        // Limpa campos e recarrega
-        document.getElementById('nomeProduto').value = '';
-        document.getElementById('precoProduto').value = '';
-        document.getElementById('imagemProduto').value = '';
+        nomeInput.value = '';
+        if (precoInput) precoInput.value = '';
+        if (imagemInput) imagemInput.value = '';
         fecharModalAdmin();
         carregarProdutos();
     }
