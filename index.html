@@ -8,6 +8,26 @@
 </head>
 <body>
 
+    <!-- Modal de Identificação do Cliente (Aparece ao entrar) -->
+    <div id="modalCliente" class="modal-overlay" style="display: flex;">
+        <div class="modal-card">
+            <h2>Bem-vindo ao Atelier</h2>
+            <p class="subtitle">Introduza o seu email para continuar e aproveitar ofertas exclusivas.</p>
+
+            <div class="input-group">
+                <label>O seu Email</label>
+                <input type="email" id="emailClienteInput" placeholder="exemplo@email.com">
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="aceitaOfertas" checked>
+                <label for="aceitaOfertas">Quero receber cupons de desconto, novidades e ofertas por email.</label>
+            </div>
+
+            <button onclick="salvarIdentificacaoCliente()" class="btn btn-dark btn-block" style="margin-top: 16px;">Entrar na Loja</button>
+        </div>
+    </div>
+
     <!-- Header Principal -->
     <header class="navbar">
         <div class="nav-container">
@@ -22,24 +42,23 @@
 
             <div class="nav-actions">
                 <button onclick="abrirCarrinho()" class="btn btn-secondary btn-icon">
-                    🛒 Carrinho <span id="contadorCarrinho" class="counter-badge">0</span>
+                    🛒 <span class="hide-mobile">Carrinho</span> <span id="contadorCarrinho" class="counter-badge">0</span>
                 </button>
                 <div id="statusLogin">
-                    <button onclick="abrirModalAdmin()" class="btn btn-outline">Área Admin</button>
+                    <button onclick="abrirModalAdmin()" class="btn btn-outline">Admin</button>
                 </div>
             </div>
         </div>
     </header>
 
-    <!-- Modal do Painel de Login / Administrador & Quadro de Vendas -->
+    <!-- Modal Painel Administrador -->
     <div id="modalAdmin" class="modal-overlay" style="display: none;">
         <div class="modal-card">
             <button class="btn-close" onclick="fecharModalAdmin()">&times;</button>
             
-            <!-- Visível se NÃO logado -->
             <div id="formLoginView">
                 <h2>Acesso Restrito</h2>
-                <p class="subtitle">Introduza as credenciais para gerir o catálogo</p>
+                <p class="subtitle">Introduza as credenciais de administrador</p>
 
                 <div class="input-group">
                     <label>Email</label>
@@ -54,12 +73,10 @@
                 <button onclick="fazerLogin()" class="btn btn-dark btn-block">Entrar na Conta</button>
             </div>
 
-            <!-- Visível se LOGADO -->
             <div id="formCadastroView" style="display: none;">
                 <h2>Gestão da Loja</h2>
                 <p class="subtitle">Total de artigos no catálogo: <strong id="totalProdutosAdmin">0</strong></p>
 
-                <!-- Quadro de Vendas Resumo -->
                 <div class="sales-dashboard-card">
                     <div class="sales-metric">
                         <span>Total de Vendas</span>
@@ -73,7 +90,7 @@
 
                 <div class="input-group" style="margin-top: 15px;">
                     <label>Nome do Produto *</label>
-                    <input type="text" id="nomeProduto" placeholder="Ex: Casaco de Lã Minimalista">
+                    <input type="text" id="nomeProduto" placeholder="Ex: Casaco Minimalista">
                 </div>
 
                 <div class="form-row">
@@ -82,7 +99,7 @@
                         <input type="text" id="precoProduto" placeholder="Ex: 89.00">
                     </div>
                     <div class="input-group">
-                        <label>Preço Antigo (Riscado)</label>
+                        <label>Preço Antigo</label>
                         <input type="text" id="precoAntigoProduto" placeholder="Ex: 120.00">
                     </div>
                 </div>
@@ -105,15 +122,13 @@
                 <h2>O seu Carrinho</h2>
                 <button class="btn-close" onclick="fecharCarrinho()">&times;</button>
             </div>
-            <div id="listaItensCarrinho" class="drawer-body">
-                <!-- Itens agrupados do carrinho aqui -->
-            </div>
+            <div id="listaItensCarrinho" class="drawer-body"></div>
             <div class="drawer-footer">
                 <div class="drawer-total">
                     <span>Total:</span>
                     <strong id="carrinhoTotalPreco">R$ 0,00</strong>
                 </div>
-                <button onclick="finalizarCompra()" class="btn btn-dark btn-block">Concluir Encomenda</button>
+                <button onclick="finalizarCompra()" class="btn btn-dark btn-block">Concluir Encomenda via WhatsApp</button>
             </div>
         </div>
     </div>
@@ -127,24 +142,9 @@
             </div>
         </div>
 
-        <div id="gridProdutos" class="grid-produtos">
-            <!-- Cards gerados via JS -->
-        </div>
-
-        <!-- Secção de Newsletter / Leads -->
-        <section class="newsletter-section">
-            <div class="newsletter-box">
-                <h3>Junte-se ao nosso Círculo Exclusivo</h3>
-                <p>Subscreva para receber acesso antecipado a saldos, novidades e promoções privadas.</p>
-                <div class="newsletter-form">
-                    <input type="email" id="emailLead" placeholder="Introduza o seu melhor email...">
-                    <button onclick="subscreverNewsletter()" class="btn btn-dark">Subscrever</button>
-                </div>
-            </div>
-        </section>
+        <div id="gridProdutos" class="grid-produtos"></div>
     </main>
 
-    <!-- SDK Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./script.js"></script>
 </body>
