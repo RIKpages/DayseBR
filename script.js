@@ -9,10 +9,14 @@ let receitaTotalAcumulada = 0;
 let usuarioAdmin = false;
 
 async function init() {
-    // Verifica se o cliente já colocou o email nesta sessão
+    // Verifica se o cliente já inseriu o email anteriormente
     const clienteLogado = localStorage.getItem('atelier_cliente_email');
-    if (clienteLogado) {
-        document.getElementById('modalCliente').style.display = 'none';
+    const modalCliente = document.getElementById('modalCliente');
+    
+    if (clienteLogado && modalCliente) {
+        modalCliente.style.display = 'none';
+    } else if (modalCliente) {
+        modalCliente.style.display = 'flex';
     }
 
     await verificarSessao();
@@ -22,6 +26,7 @@ async function init() {
 async function salvarIdentificacaoCliente() {
     const emailInputModal = document.getElementById('emailClienteInput');
     const aceitaOfertasCheckbox = document.getElementById('aceitaOfertas');
+    const modalCliente = document.getElementById('modalCliente');
 
     if (!emailInputModal) return;
 
@@ -29,9 +34,25 @@ async function salvarIdentificacaoCliente() {
     const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     
     if (!regexEmail.test(email)) {
-        return alert('Por favor, introduza um endereço de email válido.');
+        alert('Por favor, introduza um endereço de email válido.');
+        return;
     }
 
+    // Fecha o modal imediatamente para não prender o utilizador
+    if (modalCliente) {
+        modalCliente.style.display = 'none';
+    }
+    localStorage.setItem('atelier_cliente_email', email);
+
+    // Envia para o Supabase em segundo plano se aceitou receber ofertas
+    if (aceitaOfertasCheckbox && aceitaOfertasCheckbox.checked) {
+        try {
+            await _supabase.from('leads').insert([{ email: email }]);
+        } catch (err) {
+            console.log('Lead já existe ou erro de rede', err);
+        }
+    }
+}
     // Grava na tabela 'leads' do Supabase se o cliente aceitou receber ofertas
     if (aceitaOfertasCheckbox && aceitaOfertasCheckbox.checked) {
         const { error } = await _supabase.from('leads').insert([{ email: email }]);
