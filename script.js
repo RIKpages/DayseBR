@@ -1,6 +1,6 @@
 const SUPABASE_URL = 'https://finmivasfcnnJntfaeei.supabase.co';
 // Cole aqui a sua chave de API anon/public
-const SUPABASE_KEY = 'eyJhbGciOi... (COLE AQUI A SUA CHAVE ANON COMPLETA)';
+const SUPABASE_KEY = 'sb_publishable_1GrP5ip9yUycdbQ_JnvDdQ_b6_vxJFK';
 
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let listaProdutosGlobal = [];
