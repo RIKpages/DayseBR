@@ -3,10 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minha Loja Online | E-Commerce</title>
-    <link rel="stylesheet" href="style.css">
-    <!-- Ícones Lucide -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <title>TechStore | Minha Loja Online</title>
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body>
 
@@ -14,7 +12,7 @@
     <header class="navbar">
         <div class="nav-container">
             <div class="brand">
-                <span class="logo-icon">🛍️</span>
+                <span style="font-size: 1.5rem;">🛍️</span>
                 <h1>TechStore</h1>
             </div>
 
@@ -23,7 +21,9 @@
             </div>
 
             <div class="nav-actions" id="statusLogin">
-                <!-- Botão dinâmico gerado pelo JS -->
+                <button onclick="abrirModalAdmin()" class="btn btn-outline">
+                    Entrar como Admin
+                </button>
             </div>
         </div>
     </header>
@@ -91,6 +91,6 @@
 
     <!-- SDK Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="script.js"></script>
+    <script src="./script.js"></script>
 </body>
 </html>
