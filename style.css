@@ -389,5 +389,56 @@ body {
 
 .sales-metric strong {
     font-size: 1.2rem;
+.newsletter-section {
+    max-width: 1300px;
+    margin: 60px auto 20px auto;
+    padding: 0;
+}
+
+.newsletter-box {
+    background-color: #f2f2ee;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 48px 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.newsletter-box h3 {
+    font-size: 1.4rem;
+    font-weight: 500;
+    letter-spacing: -0.5px;
+}
+
+.newsletter-box p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    max-width: 500px;
+    margin-bottom: 8px;
+}
+
+.newsletter-form {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    max-width: 420px;
+}
+
+.newsletter-form input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background-color: #fff;
+    outline: none;
+    font-size: 0.9rem;
+}
+
+.newsletter-form input:focus {
+    border-color: var(--text-main);
+}
     color: var(--text-main);
 }
