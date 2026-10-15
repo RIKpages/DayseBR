@@ -1,5 +1,5 @@
 const SUPABASE_URL = 'https://finmivasfcnnJntfaeei.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_1GrP5ip9yUycdbQ_JnvDdQ_b6_vxJFK';
+const SUPABASE_KEY = 'sb_publishable_1GrP5ip9yUycdbQ_JnvDdQ_b6_vXJFK';
 
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let listaProdutosGlobal = [];
@@ -111,7 +111,6 @@ function renderGrid(produtos) {
         return;
     }
 
-    // Verifica se utilizador é admin para permitir exclusão
     _supabase.auth.getSession().then(({ data: { session } }) => {
         const isAdmin = !!session;
 
@@ -174,23 +173,21 @@ async function darLike(id) {
     if (!produto) return;
 
     const novosLikes = (produto.likes || 0) + 1;
-    
-    // Atualiza no Supabase (se as colunas existirem na tabela)
-    await _supabase.from('tarefas').update({ likes: novosLikes }).eq('id', id);
+    await _supabase.from('tarefas').update({ likes: novosLikes }).eq('id', id).catch(() => {});
     
     produto.likes = novosLikes;
-    document.getElementById(`like-count-${id}`).textContent = novosLikes;
+    const el = document.getElementById(`like-count-${id}`);
+    if (el) el.textContent = novosLikes;
 }
 
 function adicionarAoCarrinho(nome, preco, id) {
     carrinho.push({ nome, preco: parseFloat(preco) || 0 });
     document.getElementById('contadorCarrinho').textContent = carrinho.length;
 
-    // Atualiza contador visual de pessoas no carrinho
     const produto = listaProdutosGlobal.find(p => p.id === id);
     if (produto) {
         produto.carrinho_count = (produto.carrinho_count || 0) + 1;
-        _supabase.from('tarefas').update({ carrinho_count: produto.carrinho_count }).eq('id', id);
+        _supabase.from('tarefas').update({ carrinho_count: produto.carrinho_count }).eq('id', id).catch(() => {});
         const el = document.getElementById(`cart-count-${id}`);
         if (el) el.textContent = produto.carrinho_count;
     }
@@ -210,7 +207,7 @@ function renderizarCarrinho() {
     }
 
     let total = 0;
-    carrinho.forEach((item, index) => {
+    carrinho.forEach((item) => {
         total += item.preco;
         const row = document.createElement('div');
         row.className = 'cart-item-row';
