@@ -239,7 +239,7 @@ function finalizarCompra() {
     if (carrinho.length === 0) return alert('O carrinho está vazio!');
 
     // 1. Número do WhatsApp da loja (exemplo com código de país: 351 para Portugal ou 55 para Brasil)
-    const numeroWhatsApp = "351912345678"; // <--- ALTERE PARA O SEU NÚMERO AQUI
+    const numeroWhatsApp = "5531991096423"; // <--- ALTERE PARA O SEU NÚMERO AQUI
 
     // 2. Montar o texto da mensagem com os itens do carrinho
     let mensagem = "Olá! Gostaria de fazer a seguinte encomenda:%0A%0A";
