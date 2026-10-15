@@ -9,8 +9,36 @@ let receitaTotalAcumulada = 0;
 let usuarioAdmin = false;
 
 async function init() {
+    // Verifica se o cliente já colocou o email nesta sessão
+    const clienteLogado = localStorage.getItem('atelier_cliente_email');
+    if (clienteLogado) {
+        document.getElementById('modalCliente').style.display = 'none';
+    }
+
     await verificarSessao();
     await carregarProdutos();
+}
+
+async function salvarIdentificacaoCliente() {
+    const inputEmail = document.getElementById('emailLead');
+    const emailInputModal = document.getElementById('emailClienteInput');
+    const aceitaOfertas = document.getElementById('aceitaOfertas').checked;
+
+    const email = emailInputModal ? emailInputModal.value.trim() : '';
+    const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (!regexEmail.test(email)) {
+        return alert('Por favor, introduza um endereço de email válido.');
+    }
+
+    // Grava na tabela 'leads' se aceitou receber ofertas
+    if (aceitaOfertas) {
+        await _supabase.from('leads').insert([{ email: email }]).catch(() => {});
+    }
+
+    localStorage.setItem('atelier_cliente_email', email);
+    document.getElementById('modalCliente').style.display = 'none';
+    alert('Bem-vindo ao Atelier! Aproveite a nossa coleção.');
 }
 
 async function verificarSessao() {
@@ -31,50 +59,37 @@ function renderHeader(session) {
     if (!statusDiv || !formLoginView || !formCadastroView) return;
 
     if (session) {
-        statusDiv.innerHTML = `
-            <button onclick="abrirModalAdmin()" class="btn btn-dark">Painel Admin</button>
-        `;
+        statusDiv.innerHTML = `<button onclick="abrirModalAdmin()" class="btn btn-dark">Painel Admin</button>`;
         formLoginView.style.display = 'none';
         formCadastroView.style.display = 'block';
         atualizarDashboardVendas();
     } else {
-        statusDiv.innerHTML = `
-            <button onclick="abrirModalAdmin()" class="btn btn-outline">Área Admin</button>
-        `;
+        statusDiv.innerHTML = `<button onclick="abrirModalAdmin()" class="btn btn-outline">Admin</button>`;
         formLoginView.style.display = 'block';
         formCadastroView.style.display = 'none';
     }
 }
 
 function abrirModalAdmin() {
-    const modal = document.getElementById('modalAdmin');
-    if (modal) modal.style.display = 'flex';
+    document.getElementById('modalAdmin').style.display = 'flex';
 }
 
 function fecharModalAdmin() {
-    const modal = document.getElementById('modalAdmin');
-    if (modal) modal.style.display = 'none';
+    document.getElementById('modalAdmin').style.display = 'none';
 }
 
 function abrirCarrinho() {
-    const modal = document.getElementById('modalCarrinho');
-    if (modal) modal.style.display = 'flex';
+    document.getElementById('modalCarrinho').style.display = 'flex';
     renderizarCarrinho();
 }
 
 function fecharCarrinho() {
-    const modal = document.getElementById('modalCarrinho');
-    if (modal) modal.style.display = 'none';
+    document.getElementById('modalCarrinho').style.display = 'none';
 }
 
 async function fazerLogin() {
-    const emailInput = document.getElementById('emailLogin');
-    const senhaInput = document.getElementById('senhaLogin');
-
-    if (!emailInput || !senhaInput) return;
-
-    const email = emailInput.value.trim();
-    const password = senhaInput.value;
+    const email = document.getElementById('emailLogin').value.trim();
+    const password = document.getElementById('senhaLogin').value;
 
     if (!email || !password) return alert('Preencha todos os campos.');
 
@@ -110,7 +125,6 @@ async function carregarProdutos() {
         .order('id', { ascending: false });
 
     if (error) {
-        console.error(error);
         grid.innerHTML = '<p style="color: var(--accent-red);">Erro ao carregar o catálogo.</p>';
         return;
     }
@@ -196,9 +210,7 @@ async function darLike(id) {
     if (!produto) return;
 
     const novosLikes = (produto.likes || 0) + 1;
-    
-    // Atualiza no Supabase
-    await _supabase.from('tarefas').update({ likes: novosLikes }).eq('id', id);
+    await _supabase.from('tarefas').update({ likes: novosLikes }).eq('id', id).catch(() => {});
     
     produto.likes = novosLikes;
     const el = document.getElementById(`like-count-${id}`);
@@ -224,8 +236,6 @@ function adicionarAoCarrinho(id, nome, preco) {
         const el = document.getElementById(`cart-count-${id}`);
         if (el) el.textContent = produto.carrinho_count;
     }
-
-    alert(`"${nome}" foi adicionado ao carrinho.`);
 }
 
 function renderizarCarrinho() {
@@ -261,9 +271,10 @@ function renderizarCarrinho() {
 function finalizarCompra() {
     if (carrinho.length === 0) return alert('O carrinho está vazio!');
 
-    const numeroWhatsApp = "31991096423"; // Substitua pelo seu WhatsApp com código do país e DDD
+    const numeroWhatsApp = "5511999999999"; // Altere para o seu número WhatsApp com DDD
+    const emailCliente = localStorage.getItem('atelier_cliente_email') || 'Não informado';
 
-    let mensagem = "Olá! Gostaria de fazer a seguinte encomenda:%0A%0A";
+    let mensagem = `Olá! Gostaria de fazer a seguinte encomenda:%0A(Cliente: ${emailCliente})%0A%0A`;
     let totalGeral = 0;
     
     carrinho.forEach((item) => {
@@ -337,31 +348,6 @@ async function excluirProduto(id) {
         alert('Erro ao excluir: ' + error.message);
     } else {
         carregarProdutos();
-    }
-}
-
-async function subscreverNewsletter() {
-    const inputEmail = document.getElementById('emailLead');
-    if (!inputEmail) return;
-
-    const email = inputEmail.value.trim();
-    const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    
-    if (!regexEmail.test(email)) {
-        return alert('Por favor, introduza um endereço de email válido.');
-    }
-
-    const { error } = await _supabase.from('leads').insert([{ email: email }]);
-
-    if (error) {
-        if (error.code === '23505') {
-            alert('Este email já se encontra registado na nossa newsletter.');
-        } else {
-            alert('Erro ao subscrever: ' + error.message);
-        }
-    } else {
-        alert('Obrigado por subscrever! Em breve receberá as nossas novidades.');
-        inputEmail.value = '';
     }
 }
 
