@@ -25,7 +25,6 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-/* Navbar Orgânica */
 .navbar {
     background-color: var(--bg-surface);
     border-bottom: 1px solid var(--border);
@@ -83,7 +82,6 @@ body {
     gap: 12px;
 }
 
-/* Botões Suaves e Elegantes */
 .btn {
     padding: 10px 20px;
     border-radius: 6px;
@@ -117,7 +115,6 @@ body {
     margin-left: 4px;
 }
 
-/* Layout Principal */
 .main-content {
     max-width: 1300px;
     margin: 48px auto;
@@ -143,16 +140,6 @@ body {
     margin-top: 4px;
 }
 
-.badge-pill {
-    background-color: #eae9e5;
-    color: var(--text-main);
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 0.82rem;
-    font-weight: 500;
-}
-
-/* Grid de Produtos refinada */
 .grid-produtos {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -189,7 +176,6 @@ body {
     object-fit: cover;
 }
 
-/* Badge de Promoção */
 .promo-badge-tag {
     position: absolute;
     top: 12px;
@@ -237,7 +223,6 @@ body {
     text-decoration: line-through;
 }
 
-/* Métricas (Likes e Carrinho) */
 .product-metrics {
     display: flex;
     justify-content: space-between;
@@ -267,7 +252,6 @@ body {
     gap: 8px;
 }
 
-/* Modais e Gavetas */
 .modal-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -379,7 +363,6 @@ body {
     margin-bottom: 24px;
 }
 
-/* Quadro de Vendas Estilo */
 .sales-dashboard-card {
     background-color: #f7f7f5;
     border: 1px solid var(--border);
