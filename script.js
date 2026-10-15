@@ -87,7 +87,6 @@ async function fazerLogin() {
         renderHeader(data.session);
         fecharModalAdmin();
         renderGrid(listaProdutosGlobal);
-        alert('Sessão iniciada com sucesso!');
     }
 }
 
@@ -138,8 +137,8 @@ function renderGrid(produtos) {
     produtos.forEach(p => {
         const nome = p.texto || 'Artigo exclusivo';
         const precoNum = parseFloat(p.preco) || 0;
-        const precoStr = p.preco ? `${precoNum.toFixed(2)} €` : 'Sob consulta';
-        const precoAntigo = p.preco_antigo ? `${parseFloat(p.preco_antigo).toFixed(2)} €` : null;
+        const precoStr = p.preco ? `R$ ${precoNum.toFixed(2)}` : 'Sob consulta';
+        const precoAntigo = p.preco_antigo ? `R$ ${parseFloat(p.preco_antigo).toFixed(2)}` : null;
         const imagem = p.imagem || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500';
         const likes = p.likes || 0;
         const carrinhoCount = p.carrinho_count || 0;
@@ -197,7 +196,9 @@ async function darLike(id) {
     if (!produto) return;
 
     const novosLikes = (produto.likes || 0) + 1;
-    await _supabase.from('tarefas').update({ likes: novosLikes }).eq('id', id).catch(() => {});
+    
+    // Atualiza no Supabase
+    await _supabase.from('tarefas').update({ likes: novosLikes }).eq('id', id);
     
     produto.likes = novosLikes;
     const el = document.getElementById(`like-count-${id}`);
@@ -236,7 +237,7 @@ function renderizarCarrinho() {
 
     if (carrinho.length === 0) {
         lista.innerHTML = '<p style="color: var(--text-muted); text-align: center; margin-top: 40px;">O seu carrinho está vazio.</p>';
-        totalEl.textContent = '0.00 €';
+        totalEl.textContent = 'R$ 0,00';
         return;
     }
 
@@ -249,18 +250,18 @@ function renderizarCarrinho() {
         row.className = 'cart-item-row';
         row.innerHTML = `
             <span>${item.nome} <strong>x(${item.quantidade})</strong></span>
-            <span><strong>${subtotal.toFixed(2)} €</strong></span>
+            <span><strong>R$ ${subtotal.toFixed(2)}</strong></span>
         `;
         lista.appendChild(row);
     });
 
-    totalEl.textContent = `${totalGeral.toFixed(2)} €`;
+    totalEl.textContent = `R$ ${totalGeral.toFixed(2)}`;
 }
 
 function finalizarCompra() {
     if (carrinho.length === 0) return alert('O carrinho está vazio!');
 
-    const numeroWhatsApp = "5531991096423"; // Altere para o seu número com código do país
+    const numeroWhatsApp = "31991096423"; // Substitua pelo seu WhatsApp com código do país e DDD
 
     let mensagem = "Olá! Gostaria de fazer a seguinte encomenda:%0A%0A";
     let totalGeral = 0;
@@ -268,10 +269,10 @@ function finalizarCompra() {
     carrinho.forEach((item) => {
         const subtotal = item.preco * item.quantidade;
         totalGeral += subtotal;
-        mensagem += `- ${item.nome} x(${item.quantidade}) — ${subtotal.toFixed(2)} €%0A`;
+        mensagem += `- ${item.nome} x(${item.quantidade}) — R$ ${subtotal.toFixed(2)}%0A`;
     });
 
-    mensagem += `%0A*Total da Encomenda: ${totalGeral.toFixed(2)} €*%0A%0APor favor, confirme os detalhes.`;
+    mensagem += `%0A*Total da Encomenda: R$ ${totalGeral.toFixed(2)}*%0A%0APor favor, confirme os detalhes.`;
 
     totalVendasConcluidas += 1;
     receitaTotalAcumulada += totalGeral;
@@ -290,7 +291,7 @@ function atualizarDashboardVendas() {
     const elVendas = document.getElementById('adminTotalVendas');
     const elReceita = document.getElementById('adminReceitaTotal');
     if (elVendas) elVendas.textContent = totalVendasConcluidas;
-    if (elReceita) elReceita.textContent = `${receitaTotalAcumulada.toFixed(2)} €`;
+    if (elReceita) elReceita.textContent = `R$ ${receitaTotalAcumulada.toFixed(2)}`;
 }
 
 async function adicionarProduto() {
@@ -336,6 +337,31 @@ async function excluirProduto(id) {
         alert('Erro ao excluir: ' + error.message);
     } else {
         carregarProdutos();
+    }
+}
+
+async function subscreverNewsletter() {
+    const inputEmail = document.getElementById('emailLead');
+    if (!inputEmail) return;
+
+    const email = inputEmail.value.trim();
+    const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (!regexEmail.test(email)) {
+        return alert('Por favor, introduza um endereço de email válido.');
+    }
+
+    const { error } = await _supabase.from('leads').insert([{ email: email }]);
+
+    if (error) {
+        if (error.code === '23505') {
+            alert('Este email já se encontra registado na nossa newsletter.');
+        } else {
+            alert('Erro ao subscrever: ' + error.message);
+        }
+    } else {
+        alert('Obrigado por subscrever! Em breve receberá as nossas novidades.');
+        inputEmail.value = '';
     }
 }
 
