@@ -3,7 +3,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let listaProdutosGlobal = [];
-let carrinho = [];
+let carrinho = []; // Armazena { id, nome, preco, quantidade }
 let totalVendasConcluidas = 0;
 let receitaTotalAcumulada = 0;
 
@@ -70,6 +70,7 @@ async function fazerLogin() {
     } else {
         renderHeader(data.session);
         fecharModalAdmin();
+        carregarProdutos();
     }
 }
 
@@ -77,6 +78,7 @@ async function fazerLogout() {
     await _supabase.auth.signOut();
     renderHeader(null);
     fecharModalAdmin();
+    carregarProdutos();
 }
 
 async function carregarProdutos() {
@@ -97,7 +99,11 @@ async function carregarProdutos() {
     }
 
     listaProdutosGlobal = data || [];
-    document.getElementById('totalProdutos').textContent = `${listaProdutosGlobal.length} artigos`;
+    
+    // Atualiza o contador de produtos exclusivo para o admin
+    const totalAdminEl = document.getElementById('totalProdutosAdmin');
+    if (totalAdminEl) totalAdminEl.textContent = `${listaProdutosGlobal.length} artigos`;
+
     renderGrid(listaProdutosGlobal);
 }
 
@@ -117,8 +123,9 @@ function renderGrid(produtos) {
 
         produtos.forEach(p => {
             const nome = p.texto || 'Artigo exclusivo';
-            const preco = p.preco ? `${p.preco} €` : 'Sob consulta';
-            const precoAntigo = p.preco_antigo ? `${p.preco_antigo} €` : null;
+            const precoNum = parseFloat(p.preco) || 0;
+            const precoStr = p.preco ? `${precoNum.toFixed(2)} €` : 'Sob consulta';
+            const precoAntigo = p.preco_antigo ? `${parseFloat(p.preco_antigo).toFixed(2)} €` : null;
             const imagem = p.imagem || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500';
             const likes = p.likes || 0;
             const carrinhoCount = p.carrinho_count || 0;
@@ -134,7 +141,7 @@ function renderGrid(produtos) {
                     <div>
                         <h3 class="card-title">${nome}</h3>
                         <div class="price-container">
-                            <span class="card-price">${preco}</span>
+                            <span class="card-price">${precoStr}</span>
                             ${precoAntigo ? `<span class="card-old-price">${precoAntigo}</span>` : ''}
                         </div>
                     </div>
@@ -149,7 +156,7 @@ function renderGrid(produtos) {
                     </div>
 
                     <div class="card-actions-row">
-                        <button class="btn btn-dark btn-block" onclick="adicionarAoCarrinho('${nome}', '${p.preco || '0'}', ${p.id})">
+                        <button class="btn btn-dark btn-block" onclick="adicionarAoCarrinho(${p.id}, '${nome.replace(/'/g, "\\'")}', ${precoNum})">
                             Adicionar
                         </button>
                         ${isAdmin ? `<button class="btn btn-danger-soft" onclick="excluirProduto(${p.id})" title="Excluir produto">✕</button>` : ''}
@@ -181,10 +188,20 @@ async function darLike(id) {
     if (el) el.textContent = novosLikes;
 }
 
-function adicionarAoCarrinho(nome, preco, id) {
-    carrinho.push({ nome, preco: parseFloat(preco) || 0 });
-    document.getElementById('contadorCarrinho').textContent = carrinho.length;
+function adicionarAoCarrinho(id, nome, preco) {
+    // Procura se o produto já existe no carrinho
+    const itemExistente = carrinho.find(item => item.id === id);
+    if (itemExistente) {
+        itemExistente.quantidade += 1;
+    } else {
+        carrinho.push({ id, nome, preco, quantidade: 1 });
+    }
 
+    // Atualiza contador total de itens na navbar
+    const totalItensCarrinho = carrinho.reduce((acc, item) => acc + item.quantidade, 0);
+    document.getElementById('contadorCarrinho').textContent = totalItensCarrinho;
+
+    // Atualiza contador visual de pessoas no carrinho na base de dados
     const produto = listaProdutosGlobal.find(p => p.id === id);
     if (produto) {
         produto.carrinho_count = (produto.carrinho_count || 0) + 1;
@@ -192,8 +209,6 @@ function adicionarAoCarrinho(nome, preco, id) {
         const el = document.getElementById(`cart-count-${id}`);
         if (el) el.textContent = produto.carrinho_count;
     }
-
-    alert(`"${nome}" foi adicionado ao carrinho.`);
 }
 
 function renderizarCarrinho() {
@@ -207,25 +222,27 @@ function renderizarCarrinho() {
         return;
     }
 
-    let total = 0;
+    let totalGeral = 0;
     carrinho.forEach((item) => {
-        total += item.preco;
+        const subtotal = item.preco * item.quantidade;
+        totalGeral += subtotal;
+
         const row = document.createElement('div');
         row.className = 'cart-item-row';
         row.innerHTML = `
-            <span>${item.nome}</span>
-            <span><strong>${item.preco.toFixed(2)} €</strong></span>
+            <span>${item.nome} <strong>x(${item.quantidade})</strong></span>
+            <span><strong>${subtotal.toFixed(2)} €</strong></span>
         `;
         lista.appendChild(row);
     });
 
-    totalEl.textContent = `${total.toFixed(2)} €`;
+    totalEl.textContent = `${totalGeral.toFixed(2)} €`;
 }
 
 function finalizarCompra() {
     if (carrinho.length === 0) return alert('O carrinho está vazio!');
 
-    let totalCompra = carrinho.reduce((acc, item) => acc + item.preco, 0);
+    let totalCompra = carrinho.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
     totalVendasConcluidas += 1;
     receitaTotalAcumulada += totalCompra;
 
