@@ -3,10 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Florenza Bijouterias | Coleção & Personalização</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Florenza Bijouterias | Beleza · Estilo · Você</title>
     <link rel="stylesheet" href="./style.css">
 </head>
 <body>
@@ -32,12 +29,12 @@
                 <label for="aceitaOfertas">Quero receber cupons de desconto, novidades e ofertas por e-mail.</label>
             </div>
 
-            <button type="button" onclick="salvarIdentificacaoCliente()" class="btn btn-dark btn-block" style="margin-top: 16px;">Entrar na Loja</button>
+            <button type="button" onclick="salvarIdentificacaoCliente()" class="btn btn-dark btn-block" style="margin-top: 16px;">Entrar na Vitrine</button>
             <button type="button" onclick="fecharModalCliente()" class="btn-link-subtle">Continuar navegando</button>
         </div>
     </div>
 
-    <!-- Header Principal com Lupa + Barra Expandida no Topo -->
+    <!-- Barra Superior com Lupa Sempre Visível e Modo Expandido -->
     <header class="navbar" id="navbar">
         <div class="nav-container">
             <a href="#" class="brand" onclick="voltarAoTrilho(); return false;">
@@ -49,12 +46,12 @@
             </a>
 
             <div class="search-box" id="searchBox">
-                <button type="button" class="search-trigger-btn" id="btnAbrirBusca" onclick="abrirBuscaTopo()" aria-label="Pesquisar">
-                    <span class="search-icon">🔍</span>
+                <button type="button" class="search-trigger-btn" id="btnAbrirBusca" onclick="abrirBuscaTopo()" aria-label="Abrir pesquisa">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                     <span class="search-label-desktop">Buscar peças...</span>
                 </button>
                 <div class="search-input-wrap" id="searchInputWrap">
-                    <span class="search-icon-inner">🔍</span>
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                     <input type="text" id="inputBusca" oninput="filtrarProdutos()" placeholder="Digite o nome do acessório..." autocomplete="off">
                     <button type="button" class="search-close-btn" onclick="fecharBuscaTopo()" aria-label="Fechar busca">&times;</button>
                 </div>
@@ -71,23 +68,32 @@
         </div>
     </header>
 
-    <!-- Trilho Horizontal Interativo (Estilo Carrossel / Destaque Central) -->
-    <section id="stageTrilho" class="stage-rail">
-        <div class="rail-header">
-            <span class="rail-kicker">BELEZA · ESTILO · VOCÊ</span>
-            <h2>Detalhes que fazem você ainda mais única</h2>
+    <!-- Cabeçalho Editorial Florenza -->
+    <section class="florenza-hero-strip">
+        <div class="hero-strip-inner">
+            <span class="hero-tag">♔ SEU BRILHO, NOSSA INSPIRAÇÃO</span>
+            <h2>Detalhes que fazem você ainda mais <em>única</em>.</h2>
+            <div class="hero-mini-perks">
+                <span>✦ Caixinhas & Sacolas</span>
+                <span>✦ Mimo Especial</span>
+                <span>✦ Atendimento no WhatsApp</span>
+            </div>
         </div>
+    </section>
 
+    <!-- Palco 1: Trilho Interativo em Destaque -->
+    <main id="stageTrilho" class="stage-rail">
         <div class="rail-viewport">
             <button type="button" class="rail-arrow rail-prev" onclick="moverTrilho(-1)" aria-label="Anterior">‹</button>
             <div id="trilhoProdutos" class="rail-track"></div>
             <button type="button" class="rail-arrow rail-next" onclick="moverTrilho(1)" aria-label="Próxima">›</button>
         </div>
 
-        <!-- Painel da Peça em Destaque no Trilho -->
+        <!-- Painel Inferior da Peça em Destaque -->
         <div id="painelFocoAtivo" class="rail-focus-bar">
             <div class="focus-info">
-                <span id="focoTitulo" class="focus-title">Carregando...</span>
+                <span class="focus-eyebrow">EM DESTAQUE NA VITRINE</span>
+                <span id="focoTitulo" class="focus-title">Coleção Florenza</span>
                 <div class="focus-subrow">
                     <span id="focoPreco" class="focus-price">R$ 0,00</span>
                     <span id="focoPrecoAntigo" class="card-old-price"></span>
@@ -98,19 +104,19 @@
 
             <div class="focus-actions">
                 <button type="button" id="btnCurtirAtivo" class="btn btn-outline btn-sm">♥ <span id="focoLikes">0</span></button>
-                <button type="button" id="btnAbrirCompraAtivo" class="btn btn-dark">Embalagem & Comprar</button>
+                <button type="button" id="btnAbrirCompraAtivo" class="btn btn-dark">Personalizar & Comprar</button>
             </div>
         </div>
-    </section>
+    </main>
 
-    <!-- Tela de Personalização & Compra (Caixinhas, Sacolas, Cores e Tamanho Condicional) -->
+    <!-- Palco 2: Tela de Personalização & Compra -->
     <section id="stageCompra" class="stage-purchase" style="display: none;">
         <div class="purchase-container">
-            <button type="button" class="btn btn-outline back-rail-btn" onclick="voltarAoTrilho()">← Voltar ao Trilho</button>
+            <button type="button" class="btn btn-outline back-rail-btn" onclick="voltarAoTrilho()">← Voltar à Vitrine</button>
 
             <div class="purchase-split">
                 <div class="purchase-media">
-                    <img id="compraImagem" src="" alt="" onerror="this.src='https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=700'">
+                    <img id="compraImagem" src="" alt="">
                 </div>
 
                 <div class="purchase-details">
@@ -122,9 +128,8 @@
                     </div>
 
                     <div class="customization-box">
-                        <!-- Tipo de Embalagem -->
                         <div class="option-group">
-                            <label>Escolha a Embalagem</label>
+                            <label>Tipo de Embalagem</label>
                             <div class="size-options-row">
                                 <div>
                                     <input type="radio" id="embCaixa" name="tipoEmbalagem" value="Caixinha Personalizada" checked class="size-option-input">
@@ -137,7 +142,6 @@
                             </div>
                         </div>
 
-                        <!-- Cor das Caixinhas e Sacolas -->
                         <div class="option-group">
                             <label>Cor da Caixinha / Sacola</label>
                             <div class="color-options-row">
@@ -164,7 +168,7 @@
                             </div>
                         </div>
 
-                        <!-- Tamanho Condicional (Só aparece se ativo no Admin) -->
+                        <!-- Tamanho Condicional (Aparece APENAS se ativo no Admin) -->
                         <div class="option-group" id="blocoTamanhoAnelPulseira" style="display: none;">
                             <label>Tamanho (Anel / Pulseira)</label>
                             <div class="size-options-row">
@@ -243,7 +247,7 @@
 
                 <div class="input-group" style="margin-top: 12px;">
                     <label for="nomeProduto">Nome da Peça *</label>
-                    <input type="text" id="nomeProduto" placeholder="Ex: Anel Coração Dourado">
+                    <input type="text" id="nomeProduto" placeholder="Ex: Colar Coração Dourado">
                 </div>
 
                 <div class="form-row">
@@ -295,7 +299,7 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="./script.js" defer></script>
 </body>
 </html>
