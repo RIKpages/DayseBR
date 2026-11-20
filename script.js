@@ -7,6 +7,7 @@ const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let listaProdutosGlobal = [];
 let produtosVisiveis = [];
 let indiceAtivo = 0;
+let tamanhoRapidoSelecionado = 'P (14/15)';
 let produtoSelecionadoCompra = null;
 let carrinho = [];
 let totalVendasConcluidas = 0;
@@ -23,7 +24,7 @@ function setModalDisplay(id, estado) {
     if (el) el.style.display = estado;
 }
 
-// --- Inicialização rápida (sem travar no Firefox) ---
+// --- Inicialização ---
 function init() {
     const trilho = document.getElementById('trilhoProdutos');
     if (trilho) {
@@ -40,14 +41,12 @@ function init() {
     }
 }
 
-// --- Barra de Pesquisa (Lupa + Topo Expandido) ---
+// --- Barra de Pesquisa com Lupa + Expansão no Topo ---
 function abrirBuscaTopo() {
     const navbar = document.getElementById('navbar');
     const input = document.getElementById('inputBusca');
     if (navbar) navbar.classList.add('search-active');
-    if (input) {
-        input.focus();
-    }
+    if (input) input.focus();
 }
 
 function fecharBuscaTopo() {
@@ -60,7 +59,7 @@ function fecharBuscaTopo() {
     }
 }
 
-// --- Cliente & Leads ---
+// --- Cliente & Ofertas ---
 function fecharModalCliente() {
     setModalDisplay('modalCliente', 'none');
     localStorage.setItem('florenza_cliente_email', 'visitante@florenza.com');
@@ -204,6 +203,7 @@ function renderTrilho(produtos) {
         const precoNum = parseFloat(p.preco) || 0;
         const precoStr = p.preco ? formatarBRL(precoNum) : 'Sob consulta';
         const imagem = p.imagem || 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600';
+        const temTamanho = p.anel_pulseira_ativo === true;
 
         const item = document.createElement('article');
         item.className = `rail-item ${idx === indiceAtivo ? 'is-active' : ''}`;
@@ -223,6 +223,13 @@ function renderTrilho(produtos) {
             badge.className = 'promo-badge-tag';
             badge.textContent = 'OFERTA';
             imgWrap.appendChild(badge);
+        }
+
+        if (temTamanho) {
+            const tamTag = document.createElement('span');
+            tamTag.className = 'size-tag-mini';
+            tamTag.textContent = 'Anel/Pulseira';
+            imgWrap.appendChild(tamTag);
         }
 
         const img = document.createElement('img');
@@ -287,19 +294,49 @@ function centralizarItemAtivo() {
 function atualizarBarraFoco(produto) {
     if (!produto) return;
     const precoNum = parseFloat(produto.preco) || 0;
+    const precoAntigoNum = produto.preco_antigo ? parseFloat(produto.preco_antigo) : null;
 
     const tituloEl = document.getElementById('focoTitulo');
     const precoEl = document.getElementById('focoPreco');
+    const antigoEl = document.getElementById('focoPrecoAntigo');
     const likesEl = document.getElementById('focoLikes');
+    const sizesBox = document.getElementById('focoTamanhosRapidos');
     const btnCurtir = document.getElementById('btnCurtirAtivo');
     const btnComprar = document.getElementById('btnAbrirCompraAtivo');
 
     if (tituloEl) tituloEl.textContent = produto.texto || 'Acessório Florenza';
     if (precoEl) precoEl.textContent = produto.preco ? formatarBRL(precoNum) : 'Sob consulta';
+    if (antigoEl) {
+        if (precoAntigoNum) {
+            antigoEl.textContent = formatarBRL(precoAntigoNum);
+            antigoEl.style.display = 'inline';
+        } else {
+            antigoEl.style.display = 'none';
+        }
+    }
     if (likesEl) likesEl.textContent = produto.likes || 0;
+
+    // Seletor rápido de tamanho no trilho APENAS se estiver ativo no admin
+    if (sizesBox) {
+        if (produto.anel_pulseira_ativo === true) {
+            const opcoes = ['P (14/15)', 'M (16/17)', 'G (18/20)', 'Ajustável'];
+            sizesBox.style.display = 'flex';
+            sizesBox.innerHTML = opcoes.map((tam) => `
+                <button type="button" class="focus-size-pill ${tam === tamanhoRapidoSelecionado ? 'active' : ''}" onclick="escolherTamanhoRapido('${tam}')">${tam}</button>
+            `).join('');
+        } else {
+            sizesBox.style.display = 'none';
+            sizesBox.innerHTML = '';
+        }
+    }
 
     if (btnCurtir) btnCurtir.onclick = () => darLike(produto.id);
     if (btnComprar) btnComprar.onclick = () => abrirTelaCompra(produto.id);
+}
+
+function escolherTamanhoRapido(tam) {
+    tamanhoRapidoSelecionado = tam;
+    atualizarBarraFoco(produtosVisiveis[indiceAtivo]);
 }
 
 function filtrarProdutos() {
@@ -328,7 +365,7 @@ async function darLike(id) {
     }
 }
 
-// --- Tela de Compra Dedicada ---
+// --- Tela de Personalização & Compra ---
 function abrirTelaCompra(id) {
     const produto = listaProdutosGlobal.find((p) => p.id === id);
     if (!produto) return;
@@ -358,6 +395,12 @@ function abrirTelaCompra(id) {
 
     if (blocoTamanho) {
         blocoTamanho.style.display = produto.anel_pulseira_ativo === true ? 'block' : 'none';
+        if (produto.anel_pulseira_ativo === true) {
+            const radios = document.querySelectorAll('input[name="tamanhoItem"]');
+            radios.forEach((r) => {
+                r.checked = (r.value === tamanhoRapidoSelecionado);
+            });
+        }
     }
 
     setModalDisplay('stageTrilho', 'none');
@@ -381,7 +424,7 @@ function adicionarProdutoAtualAoCarrinho() {
     const tipoEmbalagem = document.querySelector('input[name="tipoEmbalagem"]:checked')?.value || 'Caixinha Personalizada';
     const cor = document.querySelector('input[name="corEmbalagem"]:checked')?.value || 'Rosa';
     const tamanho = p.anel_pulseira_ativo === true
-        ? (document.querySelector('input[name="tamanhoItem"]:checked')?.value || null)
+        ? (document.querySelector('input[name="tamanhoItem"]:checked')?.value || tamanhoRapidoSelecionado)
         : null;
 
     const detalhesTexto = `${tipoEmbalagem} · Cor: ${cor}${tamanho ? ` · Tam: ${tamanho}` : ''}`;
@@ -402,7 +445,7 @@ function adicionarProdutoAtualAoCarrinho() {
     abrirCarrinho();
 }
 
-// --- Sacola & WhatsApp ---
+// --- Sacola Lateral (Estilo YOUR CART com sugestão rápida) ---
 function atualizarContadorSacola() {
     const total = carrinho.reduce((acc, item) => acc + item.quantidade, 0);
     const el = document.getElementById('contadorCarrinho');
@@ -415,6 +458,43 @@ function removerItemCarrinho(index) {
     renderizarCarrinho();
 }
 
+function adicionarSugestaoRapida(id) {
+    const p = listaProdutosGlobal.find((item) => item.id === id);
+    if (!p) return;
+
+    const preco = parseFloat(p.preco) || 0;
+    const detalhesTexto = 'Caixinha Personalizada · Cor: Rosa';
+    const itemKey = `${p.id}-Caixinha Personalizada-Rosa-unico`;
+
+    const existente = carrinho.find((item) => item.key === itemKey);
+    if (existente) {
+        existente.quantidade += 1;
+    } else {
+        carrinho.push({ key: itemKey, id: p.id, nome: p.texto || 'Acessório Florenza', detalhes: detalhesTexto, preco, quantidade: 1 });
+    }
+
+    atualizarContadorSacola();
+    renderizarCarrinho();
+}
+
+function renderizarSugestoesSacola() {
+    const box = document.getElementById('sugestoesSacola');
+    if (!box) return;
+
+    const extras = listaProdutosGlobal.filter((p) => !carrinho.some((c) => c.id === p.id)).slice(0, 2);
+    if (!extras.length) {
+        box.innerHTML = '';
+        return;
+    }
+
+    box.innerHTML = `<strong>Complete seu pedido:</strong>` + extras.map((p) => `
+        <div class="suggestion-row">
+            <span>${p.texto || 'Peça Florenza'} — <strong>${formatarBRL(parseFloat(p.preco) || 0)}</strong></span>
+            <button type="button" class="btn btn-outline btn-sm" onclick="adicionarSugestaoRapida(${p.id})">+ Add</button>
+        </div>
+    `).join('');
+}
+
 function renderizarCarrinho() {
     const lista = document.getElementById('listaItensCarrinho');
     const totalEl = document.getElementById('carrinhoTotalPreco');
@@ -422,8 +502,9 @@ function renderizarCarrinho() {
 
     lista.innerHTML = '';
     if (!carrinho.length) {
-        lista.innerHTML = '<p style="color: var(--text-muted); text-align: center; margin-top: 48px;">Sua sacola está vazia.</p>';
+        lista.innerHTML = '<p style="color: var(--text-muted); text-align: center; margin-top: 40px;">Sua sacola está vazia.</p>';
         totalEl.textContent = 'R$ 0,00';
+        renderizarSugestoesSacola();
         return;
     }
 
@@ -448,6 +529,7 @@ function renderizarCarrinho() {
     });
 
     totalEl.textContent = formatarBRL(totalGeral);
+    renderizarSugestoesSacola();
 }
 
 function finalizarCompra() {
@@ -475,4 +557,73 @@ function finalizarCompra() {
     window.open(`https://wa.me/${WHATSAPP_LOJA}?text=${mensagem}`, '_blank');
 
     carrinho = [];
-    atual
+    atualizarContadorSacola();
+    fecharCarrinho();
+}
+
+function atualizarDashboardVendas() {
+    const elVendas = document.getElementById('adminTotalVendas');
+    const elReceita = document.getElementById('adminReceitaTotal');
+    if (elVendas) elVendas.textContent = totalVendasConcluidas;
+    if (elReceita) elReceita.textContent = formatarBRL(receitaTotalAcumulada);
+}
+
+// --- CRUD Admin ---
+async function adicionarProduto() {
+    const nome = document.getElementById('nomeProduto')?.value.trim();
+    const preco = (document.getElementById('precoProduto')?.value || '').trim().replace(',', '.');
+    const precoAntigo = (document.getElementById('precoAntigoProduto')?.value || '').trim().replace(',', '.');
+    const imagem = (document.getElementById('imagemProduto')?.value || '').trim();
+    const anelPulseiraAtivo = Boolean(document.getElementById('adminAtivoAnelPulseira')?.checked);
+
+    if (!nome) {
+        alert('Informe o nome da peça.');
+        return;
+    }
+
+    const novoItem = { texto: nome };
+    if (preco) novoItem.preco = preco;
+    if (precoAntigo) novoItem.preco_antigo = precoAntigo;
+    if (imagem) novoItem.imagem = imagem;
+    if (anelPulseiraAtivo) novoItem.anel_pulseira_ativo = true;
+
+    let { error } = await _supabase.from('tarefas').insert([novoItem]);
+
+    if (error && error.message && error.message.includes('anel_pulseira_ativo')) {
+        delete novoItem.anel_pulseira_ativo;
+        const retry = await _supabase.from('tarefas').insert([novoItem]);
+        error = retry.error;
+        if (!error) {
+            alert('Peça publicada! Crie a coluna booleana "anel_pulseira_ativo" na tabela "tarefas" do Supabase para ativar o seletor de tamanhos.');
+        }
+    }
+
+    if (error) {
+        alert('Erro ao publicar: ' + error.message);
+    } else {
+        document.getElementById('nomeProduto').value = '';
+        document.getElementById('precoProduto').value = '';
+        document.getElementById('precoAntigoProduto').value = '';
+        document.getElementById('imagemProduto').value = '';
+        document.getElementById('adminAtivoAnelPulseira').checked = false;
+        fecharModalAdmin();
+        carregarProdutos();
+    }
+}
+
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal-overlay')) {
+        e.target.style.display = 'none';
+        if (e.target.id === 'modalCliente') {
+            localStorage.setItem('florenza_cliente_email', 'visitante@florenza.com');
+        }
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        fecharBuscaTopo();
+    }
+});
+
+init();
