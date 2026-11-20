@@ -1,8 +1,18 @@
-const SUPABASE_URL = 'https://finmivasfcnnJntfaeei.supabase.co';
+const SUPABASE_URL = 'https://finmivasfcnnjntfaeei.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpbm1pdmFzZmNubmpudGZhZWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwNzY2MTIsImV4cCI6MjEwNzY1MjYxMn0.0IURfOPO9ExLv4D2VM03ENyPIBzG2iy9xEyE1gtlFd0';
 const WHATSAPP_LOJA = '5511999999999'; // Substitua pelo WhatsApp real com DDI + DDD + número
+const CACHE_PRODUTOS_KEY = 'florenza_vitrine_cache_v2';
 
-const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let _supabase = null;
+try {
+    if (window.supabase && typeof window.supabase.createClient === 'function') {
+        _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+            auth: { persistSession: false }
+        });
+    }
+} catch (e) {
+    console.warn('SDK Supabase indisponível, usando REST direto:', e);
+}
 
 let listaProdutosGlobal = [];
 let produtosVisiveis = [];
@@ -24,19 +34,83 @@ function setModalDisplay(id, estado) {
     if (el) el.style.display = estado;
 }
 
+function getStorageSafe(chave) {
+    try {
+        return localStorage.getItem(chave);
+    } catch (e) {
+        return null;
+    }
+}
+
+function setStorageSafe(chave, valor) {
+    try {
+        localStorage.setItem(chave, valor);
+    } catch (e) {}
+}
+
+function lerCacheVitrine() {
+    try {
+        const raw = sessionStorage.getItem(CACHE_PRODUTOS_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function salvarCacheVitrine(produtos) {
+    try {
+        sessionStorage.setItem(CACHE_PRODUTOS_KEY, JSON.stringify(produtos));
+    } catch (e) {}
+}
+
+async function buscarProdutosRapido(timeoutMs = 5000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const colunas = 'id,texto,preco,preco_antigo,imagem,likes,carrinho_count,anel_pulseira_ativo';
+
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/tarefas?select=${colunas}&order=id.desc`, {
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`
+            },
+            signal: controller.signal
+        });
+        clearTimeout(timer);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return await res.json();
+    } catch (err) {
+        clearTimeout(timer);
+        if (_supabase) {
+            const { data, error } = await _supabase.from('tarefas').select('*').order('id', { ascending: false });
+            if (!error && Array.isArray(data)) return data;
+        }
+        throw err;
+    }
+}
+
 // --- Inicialização ---
 function init() {
-    const trilho = document.getElementById('trilhoProdutos');
-    if (trilho) {
-        trilho.innerHTML = '<p style="color: var(--text-muted); margin: 0 auto;">Carregando peças...</p>';
+    const emCache = lerCacheVitrine();
+    if (emCache && emCache.length) {
+        listaProdutosGlobal = emCache;
+        produtosVisiveis = [...emCache];
+        indiceAtivo = 0;
+        renderTrilho(produtosVisiveis);
+    } else {
+        const trilho = document.getElementById('trilhoProdutos');
+        if (trilho) {
+            trilho.innerHTML = '<p style="color: var(--text-muted); margin: 0 auto;">Carregando vitrine...</p>';
+        }
     }
 
     verificarSessao();
-    carregarProdutos();
+    carregarProdutos(Boolean(emCache && emCache.length));
 
-    const clienteLogado = localStorage.getItem('florenza_cliente_email');
-    const adminAberto = document.getElementById('modalAdmin')?.style.display === 'flex';
-    if (!clienteLogado && !adminAberto) {
+    const clienteLogado = getStorageSafe('florenza_cliente_email');
+    if (!clienteLogado) {
         setModalDisplay('modalCliente', 'flex');
     }
 }
@@ -62,7 +136,7 @@ function fecharBuscaTopo() {
 // --- Cliente & Ofertas ---
 function fecharModalCliente() {
     setModalDisplay('modalCliente', 'none');
-    localStorage.setItem('florenza_cliente_email', 'visitante@florenza.com');
+    setStorageSafe('florenza_cliente_email', 'visitante@florenza.com');
 }
 
 async function salvarIdentificacaoCliente() {
@@ -77,26 +151,34 @@ async function salvarIdentificacaoCliente() {
     }
 
     setModalDisplay('modalCliente', 'none');
-    localStorage.setItem('florenza_cliente_email', email);
+    setStorageSafe('florenza_cliente_email', email);
 
     if (aceita && aceita.checked) {
-        try {
-            await _supabase.from('leads').insert([{ email }]);
-        } catch (err) {
-            console.log('Lead já cadastrada ou erro de rede:', err);
-        }
+        fetch(`${SUPABASE_URL}/rest/v1/leads`, {
+            method: 'POST',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                Prefer: 'return=minimal'
+            },
+            body: JSON.stringify([{ email }])
+        }).catch(() => {});
     }
 }
 
 // --- Admin ---
 async function verificarSessao() {
+    if (!_supabase) {
+        renderHeader(null);
+        return;
+    }
     try {
         const { data } = await _supabase.auth.getSession();
         const session = data ? data.session : null;
         usuarioAdmin = !!session;
         renderHeader(session);
     } catch (e) {
-        console.error('Erro na sessão:', e);
         renderHeader(null);
     }
 }
@@ -125,6 +207,10 @@ function abrirCarrinho() { setModalDisplay('modalCarrinho', 'flex'); renderizarC
 function fecharCarrinho() { setModalDisplay('modalCarrinho', 'none'); }
 
 async function fazerLogin() {
+    if (!_supabase) {
+        alert('Cliente de autenticação ainda carregando, tente novamente em 1 segundo.');
+        return;
+    }
     const email = document.getElementById('emailLogin')?.value.trim();
     const password = document.getElementById('senhaLogin')?.value;
     if (!email || !password) {
@@ -143,39 +229,43 @@ async function fazerLogin() {
 }
 
 async function fazerLogout() {
-    await _supabase.auth.signOut();
+    if (_supabase) await _supabase.auth.signOut().catch(() => {});
     usuarioAdmin = false;
     renderHeader(null);
     fecharModalAdmin();
 }
 
 // --- Carregamento & Trilho ---
-async function carregarProdutos() {
+async function carregarProdutos(jaTemCache = false) {
     const trilho = document.getElementById('trilhoProdutos');
     if (!trilho) return;
 
     try {
-        const { data, error } = await _supabase
-            .from('tarefas')
-            .select('*')
-            .order('id', { ascending: false });
+        const data = await buscarProdutosRapido(5000);
+        const lista = Array.isArray(data) ? data : [];
+        listaProdutosGlobal = lista;
+        salvarCacheVitrine(lista);
 
-        if (error) {
-            trilho.innerHTML = '<p style="color: var(--accent-red); margin: 0 auto;">Erro ao carregar produtos.</p>';
-            return;
-        }
+        const termo = (document.getElementById('inputBusca')?.value || '').toLowerCase().trim();
+        produtosVisiveis = termo
+            ? lista.filter((p) => p.texto && p.texto.toLowerCase().includes(termo))
+            : [...lista];
 
-        listaProdutosGlobal = Array.isArray(data) ? data : [];
-        produtosVisiveis = [...listaProdutosGlobal];
-        indiceAtivo = 0;
+        if (indiceAtivo >= produtosVisiveis.length) indiceAtivo = 0;
 
         const totalAdminEl = document.getElementById('totalProdutosAdmin');
         if (totalAdminEl) totalAdminEl.textContent = `${listaProdutosGlobal.length} peças`;
 
         renderTrilho(produtosVisiveis);
     } catch (err) {
-        console.error('Falha ao buscar produtos:', err);
-        trilho.innerHTML = '<p style="color: var(--accent-red); margin: 0 auto;">Falha de conexão ao carregar vitrine.</p>';
+        if (!jaTemCache) {
+            trilho.innerHTML = `
+                <div style="text-align:center; margin: 0 auto; padding: 16px;">
+                    <p style="color: var(--accent-red); margin-bottom: 10px;">Não foi possível carregar a vitrine agora.</p>
+                    <button type="button" class="btn btn-dark" onclick="carregarProdutos(false)">Tentar novamente</button>
+                </div>
+            `;
+        }
     }
 }
 
@@ -316,7 +406,6 @@ function atualizarBarraFoco(produto) {
     }
     if (likesEl) likesEl.textContent = produto.likes || 0;
 
-    // Seletor rápido de tamanho no trilho APENAS se estiver ativo no admin
     if (sizesBox) {
         if (produto.anel_pulseira_ativo === true) {
             const opcoes = ['P (14/15)', 'M (16/17)', 'G (18/20)', 'Ajustável'];
@@ -358,11 +447,15 @@ async function darLike(id) {
         focoLikesEl.textContent = novosLikes;
     }
 
-    try {
-        await _supabase.from('tarefas').update({ likes: novosLikes }).eq('id', id);
-    } catch (err) {
-        console.error('Erro ao curtir:', err);
-    }
+    fetch(`${SUPABASE_URL}/rest/v1/tarefas?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ likes: novosLikes })
+    }).catch(() => {});
 }
 
 // --- Tela de Personalização & Compra ---
@@ -396,8 +489,7 @@ function abrirTelaCompra(id) {
     if (blocoTamanho) {
         blocoTamanho.style.display = produto.anel_pulseira_ativo === true ? 'block' : 'none';
         if (produto.anel_pulseira_ativo === true) {
-            const radios = document.querySelectorAll('input[name="tamanhoItem"]');
-            radios.forEach((r) => {
+            document.querySelectorAll('input[name="tamanhoItem"]').forEach((r) => {
                 r.checked = (r.value === tamanhoRapidoSelecionado);
             });
         }
@@ -440,12 +532,20 @@ function adicionarProdutoAtualAoCarrinho() {
     atualizarContadorSacola();
 
     p.carrinho_count = (p.carrinho_count || 0) + 1;
-    _supabase.from('tarefas').update({ carrinho_count: p.carrinho_count }).eq('id', p.id).catch(() => {});
+    fetch(`${SUPABASE_URL}/rest/v1/tarefas?id=eq.${p.id}`, {
+        method: 'PATCH',
+        headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ carrinho_count: p.carrinho_count })
+    }).catch(() => {});
 
     abrirCarrinho();
 }
 
-// --- Sacola Lateral (Estilo YOUR CART com sugestão rápida) ---
+// --- Sacola Lateral ---
 function atualizarContadorSacola() {
     const total = carrinho.reduce((acc, item) => acc + item.quantidade, 0);
     const el = document.getElementById('contadorCarrinho');
@@ -538,7 +638,7 @@ function finalizarCompra() {
         return;
     }
 
-    const emailCliente = localStorage.getItem('florenza_cliente_email') || 'Cliente Vitrine';
+    const emailCliente = getStorageSafe('florenza_cliente_email') || 'Cliente Vitrine';
     let mensagem = `Olá, *Florenza Bijouterias*! ✨%0AGostaria de finalizar o pedido:%0A(E-mail: ${emailCliente})%0A%0A`;
     let totalGeral = 0;
 
@@ -587,35 +687,55 @@ async function adicionarProduto() {
     if (imagem) novoItem.imagem = imagem;
     if (anelPulseiraAtivo) novoItem.anel_pulseira_ativo = true;
 
-    let { error } = await _supabase.from('tarefas').insert([novoItem]);
+    const postProduto = async (payload) => {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/tarefas`, {
+            method: 'POST',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                Prefer: 'return=minimal'
+            },
+            body: JSON.stringify([payload])
+        });
+        if (!res.ok) {
+            const errTxt = await res.text();
+            throw new Error(errTxt || ('HTTP ' + res.status));
+        }
+    };
 
-    if (error && error.message && error.message.includes('anel_pulseira_ativo')) {
-        delete novoItem.anel_pulseira_ativo;
-        const retry = await _supabase.from('tarefas').insert([novoItem]);
-        error = retry.error;
-        if (!error) {
-            alert('Peça publicada! Crie a coluna booleana "anel_pulseira_ativo" na tabela "tarefas" do Supabase para ativar o seletor de tamanhos.');
+    try {
+        await postProduto(novoItem);
+    } catch (err) {
+        if (String(err.message).includes('anel_pulseira_ativo')) {
+            delete novoItem.anel_pulseira_ativo;
+            try {
+                await postProduto(novoItem);
+                alert('Peça publicada! Crie a coluna booleana "anel_pulseira_ativo" na tabela "tarefas" do Supabase para ativar o seletor de tamanhos.');
+            } catch (err2) {
+                alert('Erro ao publicar: ' + err2.message);
+                return;
+            }
+        } else {
+            alert('Erro ao publicar: ' + err.message);
+            return;
         }
     }
 
-    if (error) {
-        alert('Erro ao publicar: ' + error.message);
-    } else {
-        document.getElementById('nomeProduto').value = '';
-        document.getElementById('precoProduto').value = '';
-        document.getElementById('precoAntigoProduto').value = '';
-        document.getElementById('imagemProduto').value = '';
-        document.getElementById('adminAtivoAnelPulseira').checked = false;
-        fecharModalAdmin();
-        carregarProdutos();
-    }
+    document.getElementById('nomeProduto').value = '';
+    document.getElementById('precoProduto').value = '';
+    document.getElementById('precoAntigoProduto').value = '';
+    document.getElementById('imagemProduto').value = '';
+    document.getElementById('adminAtivoAnelPulseira').checked = false;
+    fecharModalAdmin();
+    carregarProdutos();
 }
 
 document.addEventListener('click', (e) => {
     if (e.target.classList.contains('modal-overlay')) {
         e.target.style.display = 'none';
         if (e.target.id === 'modalCliente') {
-            localStorage.setItem('florenza_cliente_email', 'visitante@florenza.com');
+            setStorageSafe('florenza_cliente_email', 'visitante@florenza.com');
         }
     }
 });
@@ -626,4 +746,8 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-init();
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
