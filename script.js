@@ -1,64 +1,147 @@
 const SUPABASE_URL = 'https://finmivasfcnnJntfaeei.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpbm1pdmFzZmNubmpudGZhZWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwNzY2MTIsImV4cCI6MjEwNzY1MjYxMn0.0IURfOPO9ExLv4D2VM03ENyPIBzG2iy9xEyE1gtlFd0';
+const WHATSAPP_LOJA = '5511999999999'; // Coloque aqui o WhatsApp real da Florenza (55 + DDD + Número)
 
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 let listaProdutosGlobal = [];
 let carrinho = [];
 let totalVendasConcluidas = 0;
 let receitaTotalAcumulada = 0;
 let usuarioAdmin = false;
 
+// --- Animações GSAP & ScrollTrigger ---
+function iniciarAnimacoesPagina() {
+    if (typeof gsap === 'undefined') return;
+
+    if (typeof ScrollTrigger !== 'undefined') {
+        gsap.registerPlugin(ScrollTrigger);
+    }
+
+    // Entrada suave do Hero editorial
+    gsap.from('.gs-hero', {
+        y: 24,
+        opacity: 0,
+        duration: 0.75,
+        stagger: 0.12,
+        ease: 'power2.out',
+        clearProps: 'transform,opacity'
+    });
+
+    // Revelação das seções no scroll
+    gsap.utils.toArray('.gs-reveal').forEach((el) => {
+        gsap.from(el, {
+            y: 26,
+            opacity: 0,
+            duration: 0.7,
+            ease: 'power2.out',
+            clearProps: 'transform,opacity',
+            scrollTrigger: {
+                trigger: el,
+                start: 'top 86%',
+                once: true
+            }
+        });
+    });
+
+    // Sombra sutil na navbar ao rolar
+    window.addEventListener('scroll', () => {
+        const nav = document.getElementById('navbar');
+        if (nav) {
+            nav.classList.toggle('scrolled', window.scrollY > 16);
+        }
+    }, { passive: true });
+}
+
+function animarCardsVitrine() {
+    if (typeof gsap === 'undefined') return;
+    gsap.from('.card-produto', {
+        y: 22,
+        opacity: 0,
+        duration: 0.55,
+        stagger: 0.06,
+        ease: 'power2.out',
+        clearProps: 'transform,opacity'
+    });
+}
+
+function animarAberturaModal(modalEl) {
+    if (!modalEl || typeof gsap === 'undefined') return;
+    const card = modalEl.querySelector('.modal-card');
+    if (!card) return;
+
+    if (card.classList.contains('drawer-card')) {
+        gsap.fromTo(card, { x: 80, opacity: 0.6 }, { x: 0, opacity: 1, duration: 0.3, ease: 'power2.out' });
+    } else {
+        gsap.fromTo(card, { y: 18, scale: 0.97, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.28, ease: 'power2.out' });
+    }
+}
+
+// --- Inicialização ---
 async function init() {
-    const clienteLogado = localStorage.getItem('atelier_cliente_email');
+    iniciarAnimacoesPagina();
+
+    const clienteLogado = localStorage.getItem('florenza_cliente_email');
     const modalCliente = document.getElementById('modalCliente');
-    
+
     if (!clienteLogado && modalCliente) {
-        setTimeout(() => { modalCliente.style.display = 'flex'; }, 1500);
+        setTimeout(() => {
+            // Só abre se nenhum outro modal estiver aberto
+            const outroAberto = document.getElementById('modalAdmin')?.style.display === 'flex' ||
+                                document.getElementById('modalDetalhesProduto')?.style.display === 'flex';
+            if (!outroAberto) {
+                modalCliente.style.display = 'flex';
+                animarAberturaModal(modalCliente);
+            }
+        }, 1600);
     }
 
     await verificarSessao();
     await carregarProdutos();
 }
 
+// --- Identificação & Leads de Clientes ---
 function fecharModalCliente() {
     const modalCliente = document.getElementById('modalCliente');
     if (modalCliente) modalCliente.style.display = 'none';
-    localStorage.setItem('atelier_cliente_email', 'visitante@florenza.com');
+    localStorage.setItem('florenza_cliente_email', 'visitante@florenza.com');
 }
 
 async function salvarIdentificacaoCliente() {
-    const emailInputModal = document.getElementById('emailClienteInput');
-    const aceitaOfertasCheckbox = document.getElementById('aceitaOfertas');
+    const emailInput = document.getElementById('emailClienteInput');
+    const aceitaOfertas = document.getElementById('aceitaOfertas');
     const modalCliente = document.getElementById('modalCliente');
 
-    if (!emailInputModal) return;
-    const email = emailInputModal.value.trim();
+    if (!emailInput) return;
+
+    const email = emailInput.value.trim();
     const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    
+
     if (!regexEmail.test(email)) {
-        alert('Por favor, introduza um endereço de email válido.');
+        alert('Por favor, informe um e-mail válido.');
         return;
     }
 
     if (modalCliente) modalCliente.style.display = 'none';
-    localStorage.setItem('atelier_cliente_email', email);
+    localStorage.setItem('florenza_cliente_email', email);
 
-    if (aceitaOfertasCheckbox && aceitaOfertasCheckbox.checked) {
+    if (aceitaOfertas && aceitaOfertas.checked) {
         try {
-            await _supabase.from('leads').insert([{ email: email }]);
+            await _supabase.from('leads').insert([{ email }]);
         } catch (err) {
-            console.log('Lead já registada', err);
+            console.log('Lead já cadastrado ou erro de rede:', err);
         }
     }
 }
 
+// --- Autenticação Admin ---
 async function verificarSessao() {
     try {
         const { data: { session } } = await _supabase.auth.getSession();
         usuarioAdmin = !!session;
         renderHeader(session);
     } catch (e) {
-        console.error("Erro na sessão:", e);
+        console.error('Erro ao verificar sessão:', e);
     }
 }
 
@@ -81,16 +164,25 @@ function renderHeader(session) {
     }
 }
 
-function abrirModalAdmin() { document.getElementById('modalAdmin').style.display = 'flex'; }
-function fecharModalAdmin() { document.getElementById('modalAdmin').style.display = 'none'; }
-function abrirCarrinho() { document.getElementById('modalCarrinho').style.display = 'flex'; renderizarCarrinho(); }
-function fecharCarrinho() { document.getElementById('modalCarrinho').style.display = 'none'; }
+function abrirModalAdmin() {
+    const modal = document.getElementById('modalAdmin');
+    if (modal) {
+        modal.style.display = 'flex';
+        animarAberturaModal(modal);
+    }
+}
+
+function fecharModalAdmin() {
+    const modal = document.getElementById('modalAdmin');
+    if (modal) modal.style.display = 'none';
+}
 
 async function fazerLogin() {
-    const email = document.getElementById('emailLogin').value.trim();
-    const password = document.getElementById('senhaLogin').value;
+    const email = document.getElementById('emailLogin')?.value.trim();
+    const password = document.getElementById('senhaLogin')?.value;
 
-    if (!email || !password) return alert('Preencha todos os campos.');
+    if (!email || !password) return alert('Preencha e-mail e senha.');
+
     const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
@@ -111,11 +203,12 @@ async function fazerLogout() {
     renderGrid(listaProdutosGlobal);
 }
 
+// --- Catálogo & Vitrine ---
 async function carregarProdutos() {
     const grid = document.getElementById('gridProdutos');
     if (!grid) return;
 
-    grid.innerHTML = '<p style="color: var(--text-muted);">A carregar artigos...</p>';
+    grid.innerHTML = '<p style="color: var(--text-muted); grid-column: 1/-1; text-align:center;">Carregando peças exclusivas...</p>';
 
     const { data, error } = await _supabase
         .from('tarefas')
@@ -123,15 +216,20 @@ async function carregarProdutos() {
         .order('id', { ascending: false });
 
     if (error) {
-        grid.innerHTML = '<p style="color: #c84b31;">Erro ao carregar o catálogo.</p>';
+        grid.innerHTML = '<p style="color: var(--accent-red); grid-column: 1/-1; text-align:center;">Erro ao carregar o catálogo.</p>';
         return;
     }
 
     listaProdutosGlobal = data || [];
+
     const totalAdminEl = document.getElementById('totalProdutosAdmin');
-    if (totalAdminEl) totalAdminEl.textContent = `${listaProdutosGlobal.length} artigos`;
+    if (totalAdminEl) totalAdminEl.textContent = `${listaProdutosGlobal.length} peças`;
 
     renderGrid(listaProdutosGlobal);
+}
+
+function formatarBRL(valor) {
+    return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 function renderGrid(produtos) {
@@ -139,33 +237,34 @@ function renderGrid(produtos) {
     if (!grid) return;
 
     grid.innerHTML = '';
+
     if (produtos.length === 0) {
-        grid.innerHTML = '<p style="color: var(--text-muted); grid-column: 1/-1;">Nenhum artigo encontrado.</p>';
+        grid.innerHTML = '<p style="color: var(--text-muted); grid-column: 1/-1; text-align:center;">Nenhuma peça encontrada.</p>';
         return;
     }
 
-    produtos.forEach(p => {
+    produtos.forEach((p) => {
         const nome = p.texto || 'Acessório Florenza';
         const precoNum = parseFloat(p.preco) || 0;
-        const precoStr = p.preco ? `R$ ${precoNum.toFixed(2)}` : 'Sob consulta';
-        const precoAntigo = p.preco_antigo ? `R$ ${parseFloat(p.preco_antigo).toFixed(2)}` : null;
-        const imagem = p.imagem || 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=500';
+        const precoStr = p.preco ? formatarBRL(precoNum) : 'Sob consulta';
+        const precoAntigo = p.preco_antigo ? formatarBRL(parseFloat(p.preco_antigo)) : null;
+        const imagem = p.imagem || 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600';
         const likes = p.likes || 0;
         const carrinhoCount = p.carrinho_count || 0;
+        const permiteTamanho = Boolean(p.anel_pulseira_ativo);
 
         const card = document.createElement('div');
         card.className = 'card-produto';
-        // Clicar no card abre o painel de opções de embalagens/tamanhos
         card.onclick = (e) => {
-            // Se clicar nos botões de like ou excluir, não abre o modal de detalhes
             if (e.target.closest('.metric-item') || e.target.closest('button')) return;
             abrirDetalhesProduto(p.id);
         };
 
         card.innerHTML = `
             <div class="img-container">
-                ${precoAntigo ? '<span class="promo-badge-tag">PROMOÇÃO</span>' : ''}
-                <img src="${imagem}" alt="${nome}" onerror="this.src='https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=500'">
+                ${precoAntigo ? '<span class="promo-badge-tag">OFERTA</span>' : ''}
+                ${permiteTamanho ? '<span class="size-indicator-tag">Escolha de Tamanho</span>' : ''}
+                <img src="${imagem}" alt="${nome}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600'">
             </div>
             <div class="card-body">
                 <div>
@@ -178,58 +277,94 @@ function renderGrid(produtos) {
 
                 <div class="product-metrics">
                     <span class="metric-item" onclick="darLike(event, ${p.id})">
-                        ♥ <span id="like-count-${p.id}">${likes}</span> gostos
+                        ♥ <span id="like-count-${p.id}">${likes}</span> curtidas
                     </span>
                     <span class="metric-item">
-                        🛍️ <span id="cart-count-${p.id}">${carrinhoCount}</span> no carrinho
+                        🛍️ <span id="cart-count-${p.id}">${carrinhoCount}</span> na sacola
                     </span>
                 </div>
 
                 <div class="card-actions-row">
                     <button class="btn btn-dark btn-block" onclick="abrirDetalhesProduto(${p.id})">
-                        Ver Opções & Comprar
+                        Escolher Opções
                     </button>
-                    ${usuarioAdmin ? `<button class="btn btn-danger-soft" onclick="excluirProduto(event, ${p.id})" title="Excluir produto">✕</button>` : ''}
+                    ${usuarioAdmin ? `<button class="btn btn-danger-soft" onclick="excluirProduto(event, ${p.id})" title="Excluir peça">✕</button>` : ''}
                 </div>
             </div>
         `;
         grid.appendChild(card);
     });
+
+    animarCardsVitrine();
 }
 
-// Abre o painel interativo de sacolinhas, caixinhas, cores e tamanho condicional
+function filtrarProdutos() {
+    const inputBusca = document.getElementById('inputBusca');
+    if (!inputBusca) return;
+    const termo = inputBusca.value.toLowerCase().trim();
+    const filtrados = listaProdutosGlobal.filter((p) => p.texto && p.texto.toLowerCase().includes(termo));
+    renderGrid(filtrados);
+}
+
+async function darLike(e, id) {
+    e.stopPropagation();
+    const produto = listaProdutosGlobal.find((p) => p.id === id);
+    if (!produto) return;
+
+    const novosLikes = (produto.likes || 0) + 1;
+    produto.likes = novosLikes;
+
+    const el = document.getElementById(`like-count-${id}`);
+    if (el) el.textContent = novosLikes;
+
+    try {
+        await _supabase.from('tarefas').update({ likes: novosLikes }).eq('id', id);
+    } catch (err) {
+        console.error('Erro ao registrar curtida:', err);
+    }
+}
+
+// --- Modal de Personalização (Embalagens, Cores e Tamanho Condicional) ---
 function abrirDetalhesProduto(id) {
-    const produto = listaProdutosGlobal.find(p => p.id === id);
+    const produto = listaProdutosGlobal.find((p) => p.id === id);
     if (!produto) return;
 
     const modal = document.getElementById('modalDetalhesProduto');
     const container = document.getElementById('conteudoDetalhesProduto');
     const precoNum = parseFloat(produto.preco) || 0;
-    const nome = produto.texto || 'Acessório';
-
-    // Verifica se a opção de anel/pulseira está ativa para este produto (salva no admin)
-    const temAnelPulseiraAtivo = produto.anel_pulseira_ativo === true;
+    const nome = produto.texto || 'Acessório Florenza';
+    const imagem = produto.imagem || 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600';
+    const temAnelPulseiraAtivo = Boolean(produto.anel_pulseira_ativo);
 
     container.innerHTML = `
-        <h2>${nome}</h2>
-        <p class="subtitle" style="margin-bottom: 12px;">Personalize a sua experiência Florenza</p>
-        <div class="price-container" style="margin-bottom: 16px;">
-            <span class="card-price" style="font-size: 1.3rem;">R$ ${precoNum.toFixed(2)}</span>
+        <div class="detail-header-grid">
+            <img src="${imagem}" alt="${nome}" class="detail-thumb" onerror="this.src='https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600'">
+            <div>
+                <h2 style="font-family: var(--font-serif); font-size: 1.45rem;">${nome}</h2>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 3px 0 6px;">Personalize sua embalagem Florenza</p>
+                <span class="card-price" style="font-size: 1.25rem;">${formatarBRL(precoNum)}</span>
+            </div>
         </div>
 
         <div class="customization-box">
-            <!-- Escolha de Embalagem -->
+            <!-- Tipo de Embalagem -->
             <div class="option-group">
-                <label>Tipo de Embalagem</label>
+                <label>Escolha a Embalagem</label>
                 <div class="size-options-row">
-                    <label class="size-option-label"><input type="radio" name="tipoEmbalagem" value="Caixinha Personalizada" checked class="size-option-input"> 🎁 Caixinha Personalizada</label>
-                    <label class="size-option-label"><input type="radio" name="tipoEmbalagem" value="Sacotinho de Presente" class="size-option-input"> 🛍️ Sacotinho Florenza</label>
+                    <div>
+                        <input type="radio" id="embCaixa" name="tipoEmbalagem" value="Caixinha Personalizada" checked class="size-option-input">
+                        <label for="embCaixa" class="size-option-label">🎁 Caixinha Personalizada</label>
+                    </div>
+                    <div>
+                        <input type="radio" id="embSacola" name="tipoEmbalagem" value="Sacola de Presente" class="size-option-input">
+                        <label for="embSacola" class="size-option-label">🛍️ Sacola Florenza</label>
+                    </div>
                 </div>
             </div>
 
-            <!-- Escolha de Cor das Caixinhas e Sacolas -->
+            <!-- Cor das Caixinhas e Sacolas -->
             <div class="option-group">
-                <label>Cor das Caixinhas e Sacolas</label>
+                <label>Cor da Caixinha / Sacola</label>
                 <div class="color-options-row">
                     <label class="color-option">
                         <input type="radio" name="corEmbalagem" value="Rosa" checked>
@@ -238,7 +373,7 @@ function abrirDetalhesProduto(id) {
                     </label>
                     <label class="color-option">
                         <input type="radio" name="corEmbalagem" value="Preto">
-                        <span class="color-circle" style="background-color: #1f1b19;"></span>
+                        <span class="color-circle" style="background-color: #1a1615;"></span>
                         Preto
                     </label>
                     <label class="color-option">
@@ -254,87 +389,116 @@ function abrirDetalhesProduto(id) {
                 </div>
             </div>
 
-            <!-- Painel de Tamanho de Anel e Pulseira (Aparece APENAS se estiver ativo no admin) -->
+            <!-- Tamanho de Anel e Pulseira (Condicional ao Admin) -->
             ${temAnelPulseiraAtivo ? `
             <div class="option-group" id="blocoTamanhoAnelPulseira">
                 <label>Tamanho (Anel / Pulseira)</label>
                 <div class="size-options-row">
-                    <label class="size-option-label"><input type="radio" name="tamanhoItem" value="Tamanho P (14/15)" checked class="size-option-input"> P (14/15)</label>
-                    <label class="size-option-label"><input type="radio" name="tamanhoItem" value="Tamanho M (16/17)" class="size-option-input"> M (16/17)</label>
-                    <label class="size-option-label"><input type="radio" name="tamanhoItem" value="Tamanho G (18/20)" class="size-option-input"> G (18/20)</label>
-                    <label class="size-option-label"><input type="radio" name="tamanhoItem" value="Ajustável" class="size-option-input"> Ajustável</label>
+                    <div>
+                        <input type="radio" id="tamP" name="tamanhoItem" value="P (14/15)" checked class="size-option-input">
+                        <label for="tamP" class="size-option-label">P (14/15)</label>
+                    </div>
+                    <div>
+                        <input type="radio" id="tamM" name="tamanhoItem" value="M (16/17)" class="size-option-input">
+                        <label for="tamM" class="size-option-label">M (16/17)</label>
+                    </div>
+                    <div>
+                        <input type="radio" id="tamG" name="tamanhoItem" value="G (18/20)" class="size-option-input">
+                        <label for="tamG" class="size-option-label">G (18/20)</label>
+                    </div>
+                    <div>
+                        <input type="radio" id="tamAjust" name="tamanhoItem" value="Ajustável" class="size-option-input">
+                        <label for="tamAjust" class="size-option-label">Ajustável</label>
+                    </div>
                 </div>
             </div>
             ` : ''}
 
-            <button onclick="adicionarComDetalhes(${produto.id}, '${nome.replace(/'/g, "\\'")}', ${precoNum})" class="btn btn-dark btn-block" style="margin-top: 10px; padding: 12px;">
-                Adicionar ao Carrinho com Embalagem Escolhida
+            <button onclick="adicionarComDetalhes(${produto.id})" class="btn btn-dark btn-block" style="margin-top: 6px; padding: 13px;">
+                Adicionar à Sacola
             </button>
         </div>
     `;
 
     modal.style.display = 'flex';
+    animarAberturaModal(modal);
 }
 
 function fecharDetalhesProduto() {
-    document.getElementById('modalDetalhesProduto').style.display = 'none';
+    const modal = document.getElementById('modalDetalhesProduto');
+    if (modal) modal.style.display = 'none';
 }
 
-function adicionarComDetalhes(id, nome, preco) {
+function adicionarComDetalhes(id) {
+    const produto = listaProdutosGlobal.find((p) => p.id === id);
+    if (!produto) return;
+
+    const nomeBase = produto.texto || 'Acessório Florenza';
+    const preco = parseFloat(produto.preco) || 0;
+
     const embalagemEl = document.querySelector('input[name="tipoEmbalagem"]:checked');
     const corEl = document.querySelector('input[name="corEmbalagem"]:checked');
     const tamanhoEl = document.querySelector('input[name="tamanhoItem"]:checked');
 
-    const tipoEmbalagem = embalagemEl ? embalagemEl.value : 'Caixinha';
+    const tipoEmbalagem = embalagemEl ? embalagemEl.value : 'Caixinha Personalizada';
     const cor = corEl ? corEl.value : 'Rosa';
-    const tamanho = tamanhoEl ? tamanhoEl.value : 'Padrão';
+    const tamanho = tamanhoEl ? tamanhoEl.value : null;
 
-    // Cria uma chave única no carrinho com base nas escolhas de personalização
-    const itemKey = `${id}-${tipoEmbalagem}-${cor}-${tamanho}`;
-    const nomePersonalizado = `${nome} (${tipoEmbalagem} Cor: ${cor}${tamanho !== 'Padrão' ? ' | Tam: ' + tamanho : ''})`;
+    const detalhesTexto = `${tipoEmbalagem} · Cor: ${cor}${tamanho ? ` · Tam: ${tamanho}` : ''}`;
+    const itemKey = `${id}-${tipoEmbalagem}-${cor}-${tamanho || 'unico'}`;
 
-    const itemExistente = carrinho.find(item => item.key === itemKey);
+    const itemExistente = carrinho.find((item) => item.key === itemKey);
     if (itemExistente) {
         itemExistente.quantidade += 1;
     } else {
-        carrinho.push({ key: itemKey, id, nome: nomePersonalizado, preco, quantidade: 1 });
+        carrinho.push({
+            key: itemKey,
+            id,
+            nome: nomeBase,
+            detalhes: detalhesTexto,
+            preco,
+            quantidade: 1
+        });
     }
 
-    const totalItensCarrinho = carrinho.reduce((acc, item) => acc + item.quantidade, 0);
-    const contadorEl = document.getElementById('contadorCarrinho');
-    if (contadorEl) contadorEl.textContent = totalItensCarrinho;
+    atualizarContadorSacola();
 
-    // Atualiza contador no Supabase
-    const produto = listaProdutosGlobal.find(p => p.id === id);
-    if (produto) {
-        produto.carrinho_count = (produto.carrinho_count || 0) + 1;
-        _supabase.from('tarefas').update({ carrinho_count: produto.carrinho_count }).eq('id', id).catch(() => {});
-        const el = document.getElementById(`cart-count-${id}`);
-        if (el) el.textContent = produto.carrinho_count;
-    }
+    // Atualiza métrica na vitrine e Supabase
+    produto.carrinho_count = (produto.carrinho_count || 0) + 1;
+    const el = document.getElementById(`cart-count-${id}`);
+    if (el) el.textContent = produto.carrinho_count;
+
+    _supabase.from('tarefas').update({ carrinho_count: produto.carrinho_count }).eq('id', id).catch(() => {});
 
     fecharDetalhesProduto();
-    alert(`"${nome}" adicionado com a sua embalagem personalizada!`);
+    abrirCarrinho();
 }
 
-function filtrarProdutos() {
-    const inputBusca = document.getElementById('inputBusca');
-    if (!inputBusca) return;
-    const termo = inputBusca.value.toLowerCase();
-    const filtrados = listaProdutosGlobal.filter(p => (p.texto && p.texto.toLowerCase().includes(termo)));
-    renderGrid(filtrados);
+// --- Sacola / Carrinho ---
+function atualizarContadorSacola() {
+    const totalItens = carrinho.reduce((acc, item) => acc + item.quantidade, 0);
+    const contadorEl = document.getElementById('contadorCarrinho');
+    if (contadorEl) contadorEl.textContent = totalItens;
 }
 
-async function darLike(e, id) {
-    e.stopPropagation();
-    const produto = listaProdutosGlobal.find(p => p.id === id);
-    if (!produto) return;
+function abrirCarrinho() {
+    const modal = document.getElementById('modalCarrinho');
+    if (modal) {
+        modal.style.display = 'flex';
+        renderizarCarrinho();
+        animarAberturaModal(modal);
+    }
+}
 
-    const novosLikes = (produto.likes || 0) + 1;
-    await _supabase.from('tarefas').update({ likes: novosLikes }).eq('id', id).catch(() => {});
-    produto.likes = novosLikes;
-    const el = document.getElementById(`like-count-${id}`);
-    if (el) el.textContent = novosLikes;
+function fecharCarrinho() {
+    const modal = document.getElementById('modalCarrinho');
+    if (modal) modal.style.display = 'none';
+}
+
+function removerItemCarrinho(index) {
+    carrinho.splice(index, 1);
+    atualizarContadorSacola();
+    renderizarCarrinho();
 }
 
 function renderizarCarrinho() {
@@ -343,56 +507,59 @@ function renderizarCarrinho() {
     if (!lista || !totalEl) return;
 
     lista.innerHTML = '';
+
     if (carrinho.length === 0) {
-        lista.innerHTML = '<p style="color: var(--text-muted); text-align: center; margin-top: 40px;">O seu carrinho está vazio.</p>';
+        lista.innerHTML = '<p style="color: var(--text-muted); text-align: center; margin-top: 48px;">Sua sacola Florenza está vazia.</p>';
         totalEl.textContent = 'R$ 0,00';
         return;
     }
 
     let totalGeral = 0;
-    carrinho.forEach((item) => {
+    carrinho.forEach((item, index) => {
         const subtotal = item.preco * item.quantidade;
         totalGeral += subtotal;
 
         const row = document.createElement('div');
         row.className = 'cart-item-row';
         row.innerHTML = `
-            <span>${item.nome} <strong>x(${item.quantidade})</strong></span>
-            <span><strong>R$ ${subtotal.toFixed(2)}</strong></span>
+            <div>
+                <strong>${item.nome}</strong> <span>x${item.quantidade}</span>
+                <span class="cart-item-meta">${item.detalhes}</span>
+            </div>
+            <div style="text-align: right; white-space: nowrap;">
+                <strong>${formatarBRL(subtotal)}</strong>
+                <button class="cart-remove-btn" onclick="removerItemCarrinho(${index})" title="Remover">✕</button>
+            </div>
         `;
         lista.appendChild(row);
     });
 
-    totalEl.textContent = `R$ ${totalGeral.toFixed(2)}`;
+    totalEl.textContent = formatarBRL(totalGeral);
 }
 
 function finalizarCompra() {
-    if (carrinho.length === 0) return alert('O carrinho está vazio!');
+    if (carrinho.length === 0) return alert('Sua sacola está vazia!');
 
-    const numeroWhatsApp = "5538999715565"; // Altere para o seu WhatsApp com DDD
-    const emailCliente = localStorage.getItem('atelier_cliente_email') || 'Visitante Florenza';
-
-    let mensagem = `Olá, Florenza! Gostaria de fazer a seguinte encomenda:%0A(Cliente: ${emailCliente})%0A%0A`;
+    const emailCliente = localStorage.getItem('florenza_cliente_email') || 'Cliente Vitrine';
+    let mensagem = `Olá, *Florenza Bijouterias*! ✨%0AGostaria de finalizar o seguinte pedido:%0A(E-mail: ${emailCliente})%0A%0A`;
     let totalGeral = 0;
-    
+
     carrinho.forEach((item) => {
         const subtotal = item.preco * item.quantidade;
         totalGeral += subtotal;
-        mensagem += `- ${item.nome} x(${item.quantidade}) — R$ ${subtotal.toFixed(2)}%0A`;
+        mensagem += `• *${item.nome}* x${item.quantidade}%0A  _${item.detalhes}_ — ${formatarBRL(subtotal)}%0A`;
     });
 
-    mensagem += `%0A*Total da Encomenda: R$ ${totalGeral.toFixed(2)}*%0A%0APor favor, confirme os detalhes para pagamento.`;
+    mensagem += `%0A*Total do Pedido: ${formatarBRL(totalGeral)}*%0A%0AAguardo confirmação de pagamento e entrega!`;
 
     totalVendasConcluidas += 1;
     receitaTotalAcumulada += totalGeral;
     atualizarDashboardVendas();
 
-    const urlWhatsApp = `https://wa.me/${numeroWhatsApp}?text=${mensagem}`;
-    window.open(urlWhatsApp, '_blank');
+    window.open(`https://wa.me/${WHATSAPP_LOJA}?text=${mensagem}`, '_blank');
 
     carrinho = [];
-    const contadorEl = document.getElementById('contadorCarrinho');
-    if (contadorEl) contadorEl.textContent = '0';
+    atualizarContadorSacola();
     fecharCarrinho();
 }
 
@@ -400,9 +567,10 @@ function atualizarDashboardVendas() {
     const elVendas = document.getElementById('adminTotalVendas');
     const elReceita = document.getElementById('adminReceitaTotal');
     if (elVendas) elVendas.textContent = totalVendasConcluidas;
-    if (elReceita) elReceita.textContent = `R$ ${receitaTotalAcumulada.toFixed(2)}`;
+    if (elReceita) elReceita.textContent = formatarBRL(receitaTotalAcumulada);
 }
 
+// --- CRUD Admin (Blindado contra ausência de coluna no Supabase) ---
 async function adicionarProduto() {
     const nomeInput = document.getElementById('nomeProduto');
     const precoInput = document.getElementById('precoProduto');
@@ -413,22 +581,30 @@ async function adicionarProduto() {
     if (!nomeInput) return;
 
     const nome = nomeInput.value.trim();
-    const preco = precoInput ? precoInput.value.trim() : '';
-    const precoAntigo = precoAntigoInput ? precoAntigoInput.value.trim() : '';
+    const preco = precoInput ? precoInput.value.trim().replace(',', '.') : '';
+    const precoAntigo = precoAntigoInput ? precoAntigoInput.value.trim().replace(',', '.') : '';
     const imagem = imagemInput ? imagemInput.value.trim() : '';
     const anelPulseiraAtivo = anelPulseiraCheckbox ? anelPulseiraCheckbox.checked : false;
 
-    if (!nome) return alert('Informe o nome do artigo.');
+    if (!nome) return alert('Informe o nome da peça.');
 
-    const novoItem = { 
-        texto: nome,
-        anel_pulseira_ativo: anelPulseiraAtivo
-    };
+    const novoItem = { texto: nome };
     if (preco) novoItem.preco = preco;
     if (precoAntigo) novoItem.preco_antigo = precoAntigo;
     if (imagem) novoItem.imagem = imagem;
+    if (anelPulseiraAtivo) novoItem.anel_pulseira_ativo = true;
 
-    const { error } = await _supabase.from('tarefas').insert([novoItem]);
+    let { error } = await _supabase.from('tarefas').insert([novoItem]);
+
+    // Fallback automático caso a coluna 'anel_pulseira_ativo' ainda não tenha sido criada no Supabase
+    if (error && error.message && error.message.includes('anel_pulseira_ativo')) {
+        delete novoItem.anel_pulseira_ativo;
+        const retry = await _supabase.from('tarefas').insert([novoItem]);
+        error = retry.error;
+        if (!error) {
+            alert('Peça publicada! Dica: crie a coluna booleana "anel_pulseira_ativo" na tabela "tarefas" do Supabase para salvar o seletor de tamanhos.');
+        }
+    }
 
     if (error) {
         alert('Erro ao publicar: ' + error.message);
@@ -445,7 +621,7 @@ async function adicionarProduto() {
 
 async function excluirProduto(e, id) {
     e.stopPropagation();
-    if (!confirm('Tem certeza de que pretende eliminar este artigo da loja?')) return;
+    if (!confirm('Deseja realmente remover esta peça da vitrine?')) return;
 
     const { error } = await _supabase.from('tarefas').delete().eq('id', id);
     if (error) {
@@ -454,5 +630,15 @@ async function excluirProduto(e, id) {
         carregarProdutos();
     }
 }
+
+// Fechar modais ao clicar fora do card
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal-overlay')) {
+        e.target.style.display = 'none';
+        if (e.target.id === 'modalCliente') {
+            localStorage.setItem('florenza_cliente_email', 'visitante@florenza.com');
+        }
+    }
+});
 
 init();
