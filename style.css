@@ -92,8 +92,112 @@ body {
 }
 
 .search-box {
+    position: relative;
+    flex: 0 1 320px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.search-trigger-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background-color: var(--bg-surface);
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s, color 0.2s;
+    white-space: nowrap;
+}
+
+.search-trigger-btn:hover {
+    border-color: var(--accent-gold);
+    color: var(--dark);
+}
+
+.search-icon {
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+.search-input-wrap {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    background: var(--bg-surface);
+    border: 1px solid var(--accent-gold);
+    border-radius: 999px;
+    padding: 4px 12px;
+}
+
+.search-input-wrap input {
     flex: 1;
-    max-width: 380px;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    padding: 6px 4px;
+    font-size: 0.92rem;
+    color: var(--text-main);
+    outline: none;
+}
+
+.search-icon-inner {
+    font-size: 0.9rem;
+    opacity: 0.75;
+}
+
+.search-close-btn {
+    background: none;
+    border: none;
+    font-size: 1.3rem;
+    line-height: 1;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+/* Quando ativada: toma conta da parte superior inteira para ver o que está digitando */
+.navbar.search-active .brand,
+.navbar.search-active .nav-actions {
+    display: none;
+}
+
+.navbar.search-active .search-box {
+    flex: 1 1 100%;
+    max-width: 100%;
+}
+
+.navbar.search-active .search-trigger-btn {
+    display: none;
+}
+
+.navbar.search-active .search-input-wrap {
+    display: flex;
+    height: 44px;
+    border-radius: 10px;
+    padding: 4px 14px;
+    box-shadow: 0 6px 20px rgba(24, 20, 19, 0.08);
+}
+
+@media (max-width: 640px) {
+    .search-box {
+        flex: 0 0 auto;
+    }
+    .search-label-desktop {
+        display: none;
+    }
+    .search-trigger-btn {
+        width: 38px;
+        height: 38px;
+        padding: 0;
+        justify-content: center;
+    }
 }
 
 .search-box input {
