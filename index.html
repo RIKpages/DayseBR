@@ -48,10 +48,17 @@
                 </div>
             </a>
 
-            <div class="search-box">
-                <input type="text" id="inputBusca" oninput="filtrarProdutos()" placeholder="Buscar peças no trilho...">
+        <div class="search-box" id="searchBox">
+                <button type="button" class="search-trigger-btn" id="btnAbrirBusca" onclick="abrirBuscaTopo()" aria-label="Abrir pesquisa">
+                    <span class="search-icon">🔍</span>
+                    <span class="search-label-desktop">Buscar peças...</span>
+                </button>
+                <div class="search-input-wrap" id="searchInputWrap">
+                    <span class="search-icon-inner">🔍</span>
+                    <input type="text" id="inputBusca" oninput="filtrarProdutos()" placeholder="O que você procura na Florenza?" autocomplete="off">
+                    <button type="button" class="search-close-btn" onclick="fecharBuscaTopo()" aria-label="Fechar pesquisa">&times;</button>
+                </div>
             </div>
-
             <div class="nav-actions">
                 <button onclick="abrirCarrinho()" class="btn btn-secondary">
                     🛍️ <span class="hide-mobile">Sacola</span> <span id="contadorCarrinho" class="counter-badge">0</span>
