@@ -1,15 +1,8 @@
 const SUPABASE_URL = 'https://finmivasfcnnjntfaeei.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpbm1pdmFzZmNubmpudGZhZWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwNzY2MTIsImV4cCI6MjEwNzY1MjYxMn0.0IURfOPO9ExLv4D2VM03ENyPIBzG2iy9xEyE1gtlFd0';
-const WHATSAPP_LOJA = '5511999999999'; // Substitua pelo número real da loja
-const CACHE_PRODUTOS_KEY = 'florenza_3d_catalog_v1';
-
-// Modelos e texturas 3D
-const DEFAULT_HERO_GLB = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/IridescentDishWithOlives/glTF-Binary/IridescentDishWithOlives.glb';
-const ORBIT_MODEL_A = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/MaterialsVariantsShoe/glTF-Binary/MaterialsVariantsShoe.glb';
-const ORBIT_MODEL_B = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/BoomBox/glTF-Binary/BoomBox.glb';
-const ROSE_TEX_URL = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/IridescentDishWithOlives/glTF/IridescentDishWithOlives_baseColor.png';
-const GOLD_TEX_URL = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/WaterBottle/glTF/WaterBottle_baseColor.png';
-const BUBBLE_SRC = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="rgba(251,207,232,0.14)" stroke="rgba(212,175,55,0.55)" stroke-width="2"/><ellipse cx="22" cy="20" rx="7" ry="4" transform="rotate(-25 22 20)" fill="rgba(255,255,255,0.65)"/></svg>';
+const WHATSAPP_LOJA = '5511999999999'; // Substitua pelo WhatsApp real com DDI + DDD + número
+const CACHE_PRODUTOS_KEY = 'florenza_vitrine_cache_v3';
+const CACHE_CARRINHO_KEY = 'florenza_carrinho_v1';
 
 let _supabase = null;
 try {
@@ -18,73 +11,104 @@ try {
             auth: { persistSession: false }
         });
     }
-} catch (e) {}
+} catch (e) {
+    console.warn('SDK Supabase indisponível, usando REST direto:', e);
+}
 
-const modelViewer = document.querySelector('#product-model');
-const berriesFG = document.querySelector('.berries-container');
-const berriesBG = document.querySelector('.berries-container-bg');
-const leavesBG = document.querySelector('.leaves-container');
-const allBerries = document.querySelectorAll('.berry');
+function garantirClienteSupabase() {
+    if (_supabase) return _supabase;
+    try {
+        if (window.supabase && typeof window.supabase.createClient === 'function') {
+            _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+                auth: { persistSession: false }
+            });
+        }
+    } catch (e) {
+        console.warn('Não foi possível inicializar autenticação Supabase:', e);
+    }
+    return _supabase;
+}
 
 let listaProdutosGlobal = [];
 let produtosVisiveis = [];
 let indiceAtivo = 0;
+let tamanhoRapidoSelecionado = 'P (14/15)';
+let produtoSelecionadoCompra = null;
 let carrinho = [];
-let isSwitching = false;
-let switchSpin = 0;
-let roseTexture = null;
-let goldTexture = null;
 let totalVendasConcluidas = 0;
 let receitaTotalAcumulada = 0;
+let usuarioAdmin = false;
 let preloaderEncerrado = false;
 
 function formatarBRL(valor) {
-    return (Number(valor) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const num = Number(valor) || 0;
+    return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function atualizarProgressoLoading(percentual, texto) {
-    const fill = document.getElementById('preloaderBarFill');
-    const status = document.getElementById('preloaderStatus');
-    if (fill) fill.style.width = `${percentual}%`;
-    if (status && texto) status.textContent = texto;
+function setModalDisplay(id, estado) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = estado;
 }
 
-function finalizarLoadingScreen() {
+function esconderLogoCarregamento() {
     if (preloaderEncerrado) return;
     preloaderEncerrado = true;
-    atualizarProgressoLoading(100, 'Vitrine pronta!');
-    setTimeout(() => {
-        const preloader = document.getElementById('preloaderFlorenza');
-        if (preloader) preloader.classList.add('is-hidden');
-    }, 280);
+    const preloader = document.getElementById('preloaderFlorenza');
+    if (preloader) preloader.classList.add('is-hidden');
 }
 
-// Pré-carrega texturas e aquece shaders quando o modelo 3D central termina de carregar
-if (modelViewer) {
-    modelViewer.addEventListener('load', async () => {
-        atualizarProgressoLoading(85, 'Preparando brilho 3D...');
-        try {
-            roseTexture = await modelViewer.createTexture(ROSE_TEX_URL);
-            goldTexture = await modelViewer.createTexture(GOLD_TEX_URL);
-            if (modelViewer.model && modelViewer.model.materials[0]?.pbrMetallicRoughness?.baseColorTexture) {
-                const mat = modelViewer.model.materials[0];
-                mat.pbrMetallicRoughness.baseColorTexture.setTexture(goldTexture);
-                await new Promise((r) => requestAnimationFrame(r));
-                mat.pbrMetallicRoughness.baseColorTexture.setTexture(roseTexture);
-            }
-        } catch (e) {}
-        finalizarLoadingScreen();
-    });
+function getStorageSafe(chave) {
+    try {
+        return localStorage.getItem(chave);
+    } catch (e) {
+        return null;
+    }
 }
 
-async function buscarProdutosSupabase(timeoutMs = 3500) {
+function setStorageSafe(chave, valor) {
+    try { localStorage.setItem(chave, valor); } catch (e) {}
+}
+
+function salvarCarrinho() {
+    try { setStorageSafe(CACHE_CARRINHO_KEY, JSON.stringify(carrinho)); } catch (e) {}
+}
+
+function carregarCarrinhoSalvo() {
+    try {
+        const raw = getStorageSafe(CACHE_CARRINHO_KEY);
+        const dados = raw ? JSON.parse(raw) : [];
+        return Array.isArray(dados) ? dados.filter(item => item && item.key && Number(item.quantidade) > 0) : [];
+    } catch (e) { return []; }
+}
+
+function lerCacheVitrine() {
+    try {
+        const raw = sessionStorage.getItem(CACHE_PRODUTOS_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function salvarCacheVitrine(produtos) {
+    try {
+        sessionStorage.setItem(CACHE_PRODUTOS_KEY, JSON.stringify(produtos));
+    } catch (e) {}
+}
+
+async function buscarProdutosRapido(timeoutMs = 5000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     const colunas = 'id,texto,preco,preco_antigo,imagem,likes,carrinho_count,anel_pulseira_ativo,modelo_3d_url';
 
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/tarefas?select=${colunas}&order=id.desc`, {
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`
+            },
             signal: controller.signal
         });
         clearTimeout(timer);
@@ -96,577 +120,748 @@ async function buscarProdutosSupabase(timeoutMs = 3500) {
     }
 }
 
-async function init() {
-    // Limite máximo de 3.2s para a tela de loading nunca travar em conexões lentas
-    const safetyTimer = setTimeout(finalizarLoadingScreen, 3200);
-
-    atualizarProgressoLoading(30, 'Carregando catálogo Florenza...');
-
-    const cacheRaw = sessionStorage.getItem(CACHE_PRODUTOS_KEY);
-    if (cacheRaw) {
-        try {
-            const cached = JSON.parse(cacheRaw);
-            if (Array.isArray(cached) && cached.length) {
-                listaProdutosGlobal = cached;
-                produtosVisiveis = [...cached];
-                renderCarrosselCards();
-                atualizarHeroComProduto(produtosVisiveis[0]);
-                atualizarProgressoLoading(65, 'Carregando modelo 3D...');
-            }
-        } catch (e) {}
+// --- Inicialização com Logo de Carregamento ---
+function init() {
+    // Watchdog local: a tela nunca depende do Supabase, de imagens ou de WebGL.
+    const fallbackLogoTimer = setTimeout(esconderLogoCarregamento, 1800);
+    try {
+        carrinho = carregarCarrinhoSalvo();
+        atualizarContadorSacola();
+        const emCache = lerCacheVitrine();
+        if (emCache && emCache.length) {
+            listaProdutosGlobal = emCache;
+            produtosVisiveis = [...emCache];
+            indiceAtivo = 0;
+            renderTrilho(produtosVisiveis);
+        } else {
+            const trilho = document.getElementById('trilhoProdutos');
+            if (trilho) trilho.innerHTML = '<p style="color: var(--text-muted); margin: 0 auto;">Carregando vitrine...</p>';
+        }
+        // Operações remotas são independentes e nunca seguram a interface.
+        Promise.resolve(verificarSessao()).catch(() => renderHeader(null));
+        Promise.resolve(carregarProdutos(Boolean(emCache && emCache.length)))
+            .catch(err => console.warn('Catálogo indisponível; mantendo a vitrine local:', err))
+            .finally(() => {
+                clearTimeout(fallbackLogoTimer);
+                esconderLogoCarregamento();
+            });
+        const clienteLogado = getStorageSafe('florenza_cliente_email');
+        if (!clienteLogado) setTimeout(() => setModalDisplay('modalCliente', 'flex'), 2000);
+    } catch (err) {
+        console.error('Falha na inicialização Florenza:', err);
+        clearTimeout(fallbackLogoTimer);
+        esconderLogoCarregamento();
     }
+}
+
+// --- Barra de Pesquisa com Lupa + Expansão no Topo ---
+function abrirBuscaTopo() {
+    const navbar = document.getElementById('navbar');
+    const input = document.getElementById('inputBusca');
+    if (navbar) navbar.classList.add('search-active');
+    if (input) input.focus();
+}
+
+function fecharBuscaTopo() {
+    const navbar = document.getElementById('navbar');
+    const input = document.getElementById('inputBusca');
+    if (navbar) navbar.classList.remove('search-active');
+    if (input) {
+        input.value = '';
+        filtrarProdutos();
+    }
+}
+
+// --- Cliente & Ofertas ---
+function fecharModalCliente() {
+    setModalDisplay('modalCliente', 'none');
+    setStorageSafe('florenza_cliente_email', 'visitante@florenza.com');
+}
+
+async function salvarIdentificacaoCliente() {
+    const input = document.getElementById('emailClienteInput');
+    const aceita = document.getElementById('aceitaOfertas');
+    if (!input) return;
+
+    const email = input.value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        alert('Por favor, informe um e-mail válido.');
+        return;
+    }
+
+    setModalDisplay('modalCliente', 'none');
+    setStorageSafe('florenza_cliente_email', email);
+
+    if (aceita && aceita.checked) {
+        fetch(`${SUPABASE_URL}/rest/v1/leads`, {
+            method: 'POST',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                Prefer: 'return=minimal'
+            },
+            body: JSON.stringify([{ email, aceita_ofertas: Boolean(aceita.checked) }])
+        }).catch(() => {});
+    }
+}
+
+// --- Admin ---
+async function verificarSessao() {
+    garantirClienteSupabase();
+    if (!_supabase) {
+        renderHeader(null);
+        return;
+    }
+    try {
+        const { data } = await _supabase.auth.getSession();
+        const session = data ? data.session : null;
+        usuarioAdmin = !!session;
+        renderHeader(session);
+    } catch (e) {
+        renderHeader(null);
+    }
+}
+
+function renderHeader(session) {
+    const statusDiv = document.getElementById('statusLogin');
+    const formLoginView = document.getElementById('formLoginView');
+    const formCadastroView = document.getElementById('formCadastroView');
+    if (!statusDiv || !formLoginView || !formCadastroView) return;
+
+    if (session) {
+        statusDiv.innerHTML = `<button type="button" onclick="abrirModalAdmin()" class="btn btn-dark">Painel Admin</button>`;
+        formLoginView.style.display = 'none';
+        formCadastroView.style.display = 'block';
+        atualizarDashboardVendas();
+    } else {
+        statusDiv.innerHTML = `<button type="button" onclick="abrirModalAdmin()" class="btn btn-outline">Admin</button>`;
+        formLoginView.style.display = 'block';
+        formCadastroView.style.display = 'none';
+    }
+}
+
+function abrirModalAdmin() { setModalDisplay('modalAdmin', 'flex'); }
+function fecharModalAdmin() { setModalDisplay('modalAdmin', 'none'); }
+function abrirCarrinho() { setModalDisplay('modalCarrinho', 'flex'); renderizarCarrinho(); }
+function fecharCarrinho() { setModalDisplay('modalCarrinho', 'none'); }
+
+async function fazerLogin() {
+    garantirClienteSupabase();
+    if (!_supabase) {
+        alert('Cliente de autenticação ainda carregando, tente novamente em 1 segundo.');
+        return;
+    }
+    const email = document.getElementById('emailLogin')?.value.trim();
+    const password = document.getElementById('senhaLogin')?.value;
+    if (!email || !password) {
+        alert('Preencha e-mail e senha.');
+        return;
+    }
+
+    const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+        alert('Erro ao entrar: ' + error.message);
+    } else {
+        usuarioAdmin = true;
+        renderHeader(data.session);
+        fecharModalAdmin();
+    }
+}
+
+async function fazerLogout() {
+    garantirClienteSupabase();
+    if (_supabase) await _supabase.auth.signOut().catch(() => {});
+    usuarioAdmin = false;
+    renderHeader(null);
+    fecharModalAdmin();
+}
+
+// --- Carregamento & Apresentação do Modelo ---
+async function carregarProdutos(jaTemCache = false) {
+    const trilho = document.getElementById('trilhoProdutos');
+    if (!trilho) return;
 
     try {
-        const dados = await buscarProdutosSupabase(3500);
-        if (Array.isArray(dados) && dados.length) {
-            listaProdutosGlobal = dados;
-            produtosVisiveis = [...dados];
-            sessionStorage.setItem(CACHE_PRODUTOS_KEY, JSON.stringify(dados));
-            renderCarrosselCards();
-            atualizarHeroComProduto(produtosVisiveis[0]);
-            const totalAdmin = document.getElementById('totalProdutosAdmin');
-            if (totalAdmin) totalAdmin.textContent = dados.length;
-        } else if (!listaProdutosGlobal.length) {
-            usarCatalogoDemonstracao();
+        const data = await buscarProdutosRapido(5000);
+        const lista = Array.isArray(data) ? data : [];
+        listaProdutosGlobal = lista;
+        salvarCacheVitrine(lista);
+
+        const termo = (document.getElementById('inputBusca')?.value || '').toLowerCase().trim();
+        produtosVisiveis = termo
+            ? lista.filter((p) => p.texto && p.texto.toLowerCase().includes(termo))
+            : [...lista];
+
+        if (indiceAtivo >= produtosVisiveis.length) indiceAtivo = 0;
+
+        const totalAdminEl = document.getElementById('totalProdutosAdmin');
+        if (totalAdminEl) totalAdminEl.textContent = `${listaProdutosGlobal.length} peças`;
+
+        renderTrilho(produtosVisiveis);
+    } catch (err) {
+        if (!jaTemCache) {
+            trilho.innerHTML = `
+                <div style="text-align:center; margin: 0 auto; padding: 12px;">
+                    <p style="color: var(--accent-red); margin-bottom: 8px;">Não foi possível carregar as peças agora.</p>
+                    <button type="button" class="btn btn-dark btn-sm" onclick="carregarProdutos(false)">Tentar novamente</button>
+                </div>
+            `;
         }
-    } catch (e) {
-        if (!listaProdutosGlobal.length) usarCatalogoDemonstracao();
-    }
-
-    atualizarProgressoLoading(75, 'Sincronizando vitrine...');
-    verificarSessao();
-
-    // Se o model-viewer já estiver carregado, encerra loading imediatamente
-    if (modelViewer && modelViewer.loaded) {
-        clearTimeout(safetyTimer);
-        finalizarLoadingScreen();
     }
 }
 
-function usarCatalogoDemonstracao() {
-    listaProdutosGlobal = [
-        {
-            id: 1,
-            texto: 'Colar Aurora Rosé',
-            preco: '49.90',
-            preco_antigo: '69.90',
-            imagem: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=400',
-            likes: 24,
-            anel_pulseira_ativo: false
-        },
-        {
-            id: 2,
-            texto: 'Anel Imperial Gold',
-            preco: '39.90',
-            imagem: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=400',
-            likes: 18,
-            anel_pulseira_ativo: true
+function renderTrilho(produtos) {
+    const trilho = document.getElementById('trilhoProdutos');
+    if (!trilho) return;
+
+    trilho.innerHTML = '';
+
+    if (!produtos.length) {
+        trilho.innerHTML = '<p style="color: var(--text-muted); margin: 0 auto;">Nenhuma peça encontrada.</p>';
+        return;
+    }
+
+    if (indiceAtivo >= produtos.length) indiceAtivo = 0;
+
+    const fragment = document.createDocumentFragment();
+
+    produtos.forEach((p, idx) => {
+        const nome = p.texto || 'Acessório Florenza';
+        const precoNum = parseFloat(p.preco) || 0;
+        const precoStr = p.preco ? formatarBRL(precoNum) : 'Sob consulta';
+        const imagem = p.imagem || 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600';
+        const temTamanho = p.anel_pulseira_ativo === true;
+
+        const item = document.createElement('article');
+        item.className = `rail-item ${idx === indiceAtivo ? 'is-active' : ''}`;
+        item.onclick = () => selecionarIndiceTrilho(idx);
+
+        const imgWrap = document.createElement('div');
+        imgWrap.className = 'rail-img-wrap';
+
+        if (p.preco_antigo) {
+            const badge = document.createElement('span');
+            badge.className = 'promo-badge-tag';
+            badge.textContent = 'OFERTA';
+            imgWrap.appendChild(badge);
         }
-    ];
-    produtosVisiveis = [...listaProdutosGlobal];
-    renderCarrosselCards();
-    atualizarHeroComProduto(produtosVisiveis[0]);
+
+        if (temTamanho) {
+            const tamTag = document.createElement('span');
+            tamTag.className = 'size-tag-mini';
+            tamTag.textContent = 'Anel/Pulseira';
+            imgWrap.appendChild(tamTag);
+        }
+
+        const img = document.createElement('img');
+        img.src = imagem;
+        img.alt = nome;
+        img.decoding = 'async';
+        img.onerror = () => {
+            img.src = 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600';
+        };
+        imgWrap.appendChild(img);
+
+        const meta = document.createElement('div');
+        meta.className = 'rail-item-meta';
+
+        const spanNome = document.createElement('span');
+        spanNome.className = 'rail-item-name';
+        spanNome.textContent = nome;
+
+        const spanPreco = document.createElement('span');
+        spanPreco.className = 'rail-item-price';
+        spanPreco.textContent = precoStr;
+
+        meta.appendChild(spanNome);
+        meta.appendChild(spanPreco);
+
+        item.appendChild(imgWrap);
+        item.appendChild(meta);
+        fragment.appendChild(item);
+    });
+
+    trilho.appendChild(fragment);
+    atualizarApresentacaoModelo(produtos[indiceAtivo]);
+    centralizarItemAtivo();
 }
 
-function atualizarHeroComProduto(produto) {
+function selecionarIndiceTrilho(novoIndice) {
+    if (!produtosVisiveis.length) return;
+    indiceAtivo = (novoIndice + produtosVisiveis.length) % produtosVisiveis.length;
+
+    const itens = document.querySelectorAll('.rail-item');
+    itens.forEach((el, i) => {
+        el.classList.toggle('is-active', i === indiceAtivo);
+    });
+
+    atualizarApresentacaoModelo(produtosVisiveis[indiceAtivo]);
+    centralizarItemAtivo();
+}
+
+function moverTrilho(passo) {
+    selecionarIndiceTrilho(indiceAtivo + passo);
+}
+
+function centralizarItemAtivo() {
+    const trilho = document.getElementById('trilhoProdutos');
+    const ativoEl = trilho?.querySelector('.rail-item.is-active');
+    if (!trilho || !ativoEl) return;
+
+    const targetScroll = ativoEl.offsetLeft - (trilho.clientWidth - ativoEl.clientWidth) / 2;
+    trilho.scrollLeft = Math.max(0, targetScroll);
+}
+
+function atualizarApresentacaoModelo(produto) {
     if (!produto) return;
-    const nome = produto.texto || 'Pure Brilho';
-    const partes = nome.split(' ');
-    const l1 = document.getElementById('heroLinha1');
-    const l2 = document.getElementById('heroLinha2');
-    const precoEl = document.getElementById('heroPrecoAtivo');
-    const antigoEl = document.getElementById('heroPrecoAntigoAtivo');
-    const likesEl = document.getElementById('focoLikes');
-    const btnCurtir = document.getElementById('btnCurtirAtivo');
 
-    if (l1) l1.textContent = partes[0] || 'Florenza';
-    if (l2) l2.textContent = partes.slice(1).join(' ') || 'Exclusiva';
-    if (precoEl) precoEl.textContent = formatarBRL(produto.preco);
+    const precoNum = parseFloat(produto.preco) || 0;
+    const precoAntigoNum = produto.preco_antigo ? parseFloat(produto.preco_antigo) : null;
+    const imagem = produto.imagem || 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800';
+
+    const heroImg = document.getElementById('heroModeloImg');
+    const hero3DWrap = document.getElementById('heroModelo3DWrap');
+    const heroToggle3D = document.getElementById('heroModeloToggle3D');
+    const tituloEl = document.getElementById('heroModeloTitulo');
+    const precoEl = document.getElementById('heroModeloPreco');
+    const antigoEl = document.getElementById('heroModeloPrecoAntigo');
+    const likesEl = document.getElementById('focoLikes');
+    const sizesBox = document.getElementById('focoTamanhosRapidos');
+    const btnCurtir = document.getElementById('btnCurtirAtivo');
+    const btnComprar = document.getElementById('btnAbrirCompraAtivo');
+
+    if (hero3DWrap) {
+        hero3DWrap.innerHTML = '';
+        hero3DWrap.style.display = 'none';
+    }
+    if (heroImg) {
+        heroImg.src = imagem;
+        heroImg.style.display = 'block';
+    }
+    if (heroToggle3D) {
+        heroToggle3D.style.display = produto.modelo_3d_url ? 'flex' : 'none';
+    }
+
+    if (tituloEl) {
+        const nome = produto.texto || 'Acessório Florenza';
+        tituloEl.textContent = `${nome} — seu brilho, nossa inspiração.`;
+    }
+    if (precoEl) precoEl.textContent = produto.preco ? formatarBRL(precoNum) : 'Sob consulta';
     if (antigoEl) {
-        if (produto.preco_antigo) {
-            antigoEl.textContent = formatarBRL(produto.preco_antigo);
+        if (precoAntigoNum) {
+            antigoEl.textContent = formatarBRL(precoAntigoNum);
             antigoEl.style.display = 'inline';
         } else {
             antigoEl.style.display = 'none';
         }
     }
     if (likesEl) likesEl.textContent = produto.likes || 0;
-    if (btnCurtir) btnCurtir.onclick = () => darLike(produto.id);
-}
 
-function renderCarrosselCards() {
-    const container = document.getElementById('carouselCards');
-    if (!container) return;
-    container.innerHTML = '';
-
-    const visiveisSlice = [];
-    if (produtosVisiveis.length > 0) {
-        visiveisSlice.push({ produto: produtosVisiveis[indiceAtivo], realIndex: indiceAtivo });
-        if (produtosVisiveis.length > 1) {
-            const proxIdx = (indiceAtivo + 1) % produtosVisiveis.length;
-            visiveisSlice.push({ produto: produtosVisiveis[proxIdx], realIndex: proxIdx });
+    if (sizesBox) {
+        if (produto.anel_pulseira_ativo === true) {
+            const opcoes = ['P (14/15)', 'M (16/17)', 'G (18/20)', 'Ajustável'];
+            sizesBox.style.display = 'flex';
+            sizesBox.innerHTML = opcoes.map((tam) => `
+                <button type="button" class="focus-size-pill ${tam === tamanhoRapidoSelecionado ? 'active' : ''}" onclick="escolherTamanhoRapido('${tam}')">${tam}</button>
+            `).join('');
+        } else {
+            sizesBox.style.display = 'none';
+            sizesBox.innerHTML = '';
         }
     }
 
-    visiveisSlice.forEach(({ produto, realIndex }, pos) => {
-        const card = document.createElement('div');
-        card.className = `card ${pos === 0 ? 'active' : ''}`;
-        const imgUrl = produto.imagem || 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=400';
-        card.innerHTML = `
-            <img src="${imgUrl}" alt="${produto.texto || 'Peça Florenza'}">
-            <div class="card-info">
-                <span>${produto.texto || 'Peça Florenza'}</span>
-                <span>${formatarBRL(produto.preco)}</span>
-            </div>
-        `;
-        card.addEventListener('click', () => {
-            if (isSwitching) return;
-            if (realIndex === indiceAtivo) {
-                abrirModalPersonalizacao();
-            } else {
-                trocarPecaComCoreografia(realIndex);
-            }
-        });
-        container.appendChild(card);
-    });
+    if (btnCurtir) btnCurtir.onclick = () => darLike(produto.id);
+    if (btnComprar) btnComprar.onclick = () => abrirTelaCompra(produto.id);
 }
 
-// Transição coreografada inspirada no switchFlavor (fundo + giro 720° com blur + implosão/explosão)
-function trocarPecaComCoreografia(novoIndice) {
-    if (isSwitching || !produtosVisiveis.length) return;
-    isSwitching = true;
-
-    indiceAtivo = (novoIndice + produtosVisiveis.length) % produtosVisiveis.length;
+function alternarHeroModelo(modo) {
     const produto = produtosVisiveis[indiceAtivo];
-    const usarTemaGold = indiceAtivo % 2 === 1;
+    const heroImg = document.getElementById('heroModeloImg');
+    const hero3DWrap = document.getElementById('heroModelo3DWrap');
+    if (!produto || !heroImg || !hero3DWrap) return;
 
-    renderCarrosselCards();
-    atualizarHeroComProduto(produto);
-
-    const body = document.body;
-    const heroCenter = document.querySelector('.hero-center');
-    const targetColors = usarTemaGold
-        ? { inner: '#5a4321', mid: '#261b0d', outer: '#090704' }
-        : { inner: '#5c2738', mid: '#281018', outer: '#090507' };
-
-    if (window.gsap) {
-        gsap.to(body, {
-            '--bg-inner': targetColors.inner,
-            '--bg-mid': targetColors.mid,
-            '--bg-outer': targetColors.outer,
-            duration: 1.4,
-            ease: 'power2.inOut'
-        });
-
-        const spinObj = { val: 0, blur: 0 };
-        gsap.to(spinObj, {
-            val: 360,
-            blur: 14,
-            duration: 0.55,
-            ease: 'power2.in',
-            onUpdate: () => {
-                switchSpin = spinObj.val;
-                if (modelViewer) modelViewer.style.filter = `blur(${spinObj.blur}px)`;
-            },
-            onComplete: () => {
-                body.classList.toggle('gold-theme', usarTemaGold);
-
-                if (produto.modelo_3d_url && modelViewer && modelViewer.src !== produto.modelo_3d_url) {
-                    modelViewer.src = produto.modelo_3d_url;
-                } else if (modelViewer && modelViewer.model) {
-                    const tex = usarTemaGold ? goldTexture : roseTexture;
-                    if (tex) {
-                        modelViewer.model.materials.forEach((mat) => {
-                            if (mat.pbrMetallicRoughness?.baseColorTexture) {
-                                mat.pbrMetallicRoughness.baseColorTexture.setTexture(tex);
-                            }
-                        });
-                    }
-                }
-
-                gsap.to(spinObj, {
-                    val: 720,
-                    blur: 0,
-                    duration: 1.35,
-                    ease: 'back.out(0.7)',
-                    onUpdate: () => {
-                        switchSpin = spinObj.val;
-                        if (modelViewer) modelViewer.style.filter = `blur(${spinObj.blur}px)`;
-                    },
-                    onComplete: () => {
-                        switchSpin = 0;
-                        if (modelViewer) modelViewer.style.filter = 'none';
-                    }
-                });
-            }
-        });
-
-        let concluido = 0;
-        allBerries.forEach((berry) => {
-            const centerX = (window.innerWidth / 2 - berry.offsetLeft - berry.offsetWidth / 2);
-            const centerY = (window.innerHeight / 2 - berry.offsetTop - berry.offsetHeight / 2);
-            const startAngle = parseFloat(berry.dataset.angle) || 0;
-            const nextBaseX = (Math.random() - 0.5) * 180;
-            const nextBaseY = (Math.random() - 0.5) * 180;
-
-            gsap.timeline()
-                .to(berry, {
-                    x: centerX,
-                    y: centerY,
-                    rotation: startAngle + 45,
-                    scale: 0.1,
-                    opacity: 0,
-                    duration: 0.45,
-                    ease: 'power2.in',
-                    onComplete: () => {
-                        berry.src = usarTemaGold ? ORBIT_MODEL_B : ORBIT_MODEL_A;
-                        if (heroCenter) heroCenter.style.zIndex = 50;
-                    }
-                })
-                .to(berry, { duration: 0.25 })
-                .to(berry, {
-                    onStart: () => { if (heroCenter) heroCenter.style.zIndex = 1; },
-                    x: nextBaseX,
-                    y: nextBaseY,
-                    rotation: startAngle + 90,
-                    scale: 1,
-                    opacity: 1,
-                    duration: 0.85,
-                    ease: 'back.out(1.5)',
-                    onComplete: () => {
-                        berry.dataset.angle = startAngle + 90;
-                        berry.dataset.baseX = nextBaseX;
-                        berry.dataset.baseY = nextBaseY;
-                        berry.dataset.rx = 0;
-                        berry.dataset.ry = 0;
-                        concluido++;
-                        if (concluido === allBerries.length) isSwitching = false;
-                    }
-                });
-        });
+    if (modo === '3d' && produto.modelo_3d_url) {
+        heroImg.style.display = 'none';
+        hero3DWrap.style.display = 'block';
+        if (!hero3DWrap.querySelector('iframe')) {
+            const iframe = document.createElement('iframe');
+            iframe.src = produto.modelo_3d_url;
+            iframe.allow = 'autoplay; fullscreen; xr-spatial-tracking';
+            hero3DWrap.appendChild(iframe);
+        }
     } else {
-        isSwitching = false;
+        hero3DWrap.style.display = 'none';
+        heroImg.style.display = 'block';
     }
 }
 
-// Setas do carrossel
-document.getElementById('btnPrevCard')?.addEventListener('click', () => {
-    trocarPecaComCoreografia(indiceAtivo - 1);
-});
-document.getElementById('btnNextCard')?.addEventListener('click', () => {
-    trocarPecaComCoreografia(indiceAtivo + 1);
-});
-
-// Parallax e Repulsão pelo Cursor
-allBerries.forEach((b) => {
-    b.dataset.rx = 0;
-    b.dataset.ry = 0;
-    b.dataset.angle = Math.random() * 360;
-    b.dataset.baseX = 0;
-    b.dataset.baseY = 0;
-});
-
-const mouse = { x: 0, y: 0, px: 0, py: 0 };
-const currentMouse = { x: 0, y: 0 };
-
-window.addEventListener('mousemove', (e) => {
-    mouse.x = (e.clientX / window.innerWidth) - 0.5;
-    mouse.y = (e.clientY / window.innerHeight) - 0.5;
-    mouse.px = e.clientX;
-    mouse.py = e.clientY;
-});
-
-function animate() {
-    const time = Date.now() * 0.001;
-    currentMouse.x += (mouse.x - currentMouse.x) * 0.05;
-    currentMouse.y += (mouse.y - currentMouse.y) * 0.05;
-
-    if (modelViewer) {
-        modelViewer.cameraOrbit = `${(currentMouse.x * 40) + switchSpin}deg ${75 + (currentMouse.y * 20)}deg 240%`;
-    }
-
-    if (berriesFG) berriesFG.style.transform = `translate(${currentMouse.x * 60}px, ${currentMouse.y * 60}px)`;
-    if (berriesBG) berriesBG.style.transform = `translate(${currentMouse.x * -30}px, ${currentMouse.y * -30}px)`;
-    if (leavesBG) leavesBG.style.transform = `translate(${currentMouse.x * -15}px, ${currentMouse.y * -15}px)`;
-
-    if (!isSwitching) {
-        allBerries.forEach((berry, i) => {
-            const rect = berry.getBoundingClientRect();
-            const bx = rect.left + rect.width / 2;
-            const by = rect.top + rect.height / 2;
-            const dx = mouse.px - bx;
-            const dy = mouse.py - by;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            let targetRx = 0, targetRy = 0, speedMult = 1;
-            if (dist < 400 && dist > 0) {
-                const force = (400 - dist) / 400;
-                targetRx = (dx / dist) * force * -80;
-                targetRy = (dy / dist) * force * -80;
-                speedMult = 1 + force * 5;
-            }
-
-            let rx = parseFloat(berry.dataset.rx) || 0;
-            let ry = parseFloat(berry.dataset.ry) || 0;
-            let angle = parseFloat(berry.dataset.angle) || 0;
-            const baseX = parseFloat(berry.dataset.baseX) || 0;
-            const baseY = parseFloat(berry.dataset.baseY) || 0;
-
-            rx += (targetRx - rx) * 0.1;
-            ry += (targetRy - ry) * 0.1;
-            angle += 0.2 * speedMult;
-
-            berry.dataset.rx = rx;
-            berry.dataset.ry = ry;
-            berry.dataset.angle = angle;
-
-            const dur = [5, 7, 6, 8, 5.5, 6.5, 9, 11, 10][i % 9];
-            const phase = (time + i * 0.7) * (Math.PI * 2 / dur);
-            const floatY = Math.sin(phase) * 15;
-            const floatAngle = Math.cos(phase) * 6;
-
-            berry.style.transform = `translate(calc(${rx + baseX}px), calc(${ry + baseY}px + ${floatY}px)) rotate(calc(${angle}deg + ${floatAngle}deg))`;
-        });
-    }
-
-    document.querySelectorAll('.leaf').forEach((leaf, i) => {
-        const dur = 10 + i * 2;
-        const phase = (time + i * 1.2) * (Math.PI * 2 / dur);
-        const floatY = Math.sin(phase) * 20;
-        const floatX = Math.cos(phase * 0.5) * 15;
-        const floatAngle = Math.sin(phase * 0.3) * 15;
-        leaf.style.transform = `translate(${floatX}px, ${floatY}px) rotate(${floatAngle}deg)`;
-    });
-
-    requestAnimationFrame(animate);
-}
-animate();
-
-// Partículas / Bolhas contínuas
-const bubblesContainer = document.getElementById('bubbles-container');
-function createBubble() {
-    if (!bubblesContainer) return;
-    const bubble = document.createElement('img');
-    bubble.src = BUBBLE_SRC;
-    bubble.className = 'bubble-img';
-    const size = Math.random() * 40 + 14;
-    bubble.style.width = `${size}px`;
-    bubble.style.height = `${size}px`;
-    bubble.style.left = `${Math.random() * 100}%`;
-    bubble.style.bottom = `-${size + 20}px`;
-    const duration = Math.random() * 6 + 6;
-    bubble.style.animation = `floatUpImg ${duration}s linear forwards`;
-    bubblesContainer.appendChild(bubble);
-    setTimeout(() => bubble.remove(), duration * 1000);
-}
-setInterval(createBubble, 500);
-for (let i = 0; i < 10; i++) setTimeout(createBubble, i * 160);
-
-// --- Busca, Personalização, Sacola, Admin & Supabase ---
-function abrirBuscaTopo() {
-    document.getElementById('navGlass').style.display = 'none';
-    const wrap = document.getElementById('searchInputWrap');
-    wrap.style.display = 'flex';
-    document.getElementById('inputBusca').focus();
-}
-
-function fecharBuscaTopo() {
-    document.getElementById('searchInputWrap').style.display = 'none';
-    document.getElementById('navGlass').style.display = 'flex';
-    const input = document.getElementById('inputBusca');
-    if (input && input.value) {
-        input.value = '';
-        filtrarProdutos();
-    }
+function escolherTamanhoRapido(tam) {
+    tamanhoRapidoSelecionado = tam;
+    atualizarApresentacaoModelo(produtosVisiveis[indiceAtivo]);
 }
 
 function filtrarProdutos() {
     const termo = (document.getElementById('inputBusca')?.value || '').toLowerCase().trim();
-    produtosVisiveis = termo
-        ? listaProdutosGlobal.filter((p) => p.texto && p.texto.toLowerCase().includes(termo))
-        : [...listaProdutosGlobal];
+    produtosVisiveis = listaProdutosGlobal.filter((p) => p.texto && p.texto.toLowerCase().includes(termo));
     indiceAtivo = 0;
-    renderCarrosselCards();
-    if (produtosVisiveis[0]) atualizarHeroComProduto(produtosVisiveis[0]);
+    renderTrilho(produtosVisiveis);
 }
 
-function abrirModalPersonalizacao() {
-    const p = produtosVisiveis[indiceAtivo];
-    if (!p) return;
-    document.getElementById('modalPieceTitle').textContent = p.texto || 'Peça Florenza';
-    document.getElementById('modalPiecePrice').textContent = formatarBRL(p.preco);
-    document.getElementById('blocoTamanhoAnelPulseira').style.display = p.anel_pulseira_ativo === true ? 'block' : 'none';
-    document.getElementById('modalPersonalizar').style.display = 'flex';
+async function darLike(id) {
+    const produto = listaProdutosGlobal.find((p) => p.id === id);
+    if (!produto) return;
+
+    const novosLikes = (produto.likes || 0) + 1;
+    produto.likes = novosLikes;
+
+    const focoLikesEl = document.getElementById('focoLikes');
+    if (focoLikesEl && produtosVisiveis[indiceAtivo]?.id === id) {
+        focoLikesEl.textContent = novosLikes;
+    }
+
+    fetch(`${SUPABASE_URL}/rest/v1/tarefas?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ likes: novosLikes })
+    }).catch(() => {});
 }
 
-function fecharModalPersonalizar() { document.getElementById('modalPersonalizar').style.display = 'none'; }
-function abrirCarrinho() { document.getElementById('modalCarrinho').style.display = 'flex'; renderizarCarrinho(); }
-function fecharCarrinho() { document.getElementById('modalCarrinho').style.display = 'none'; }
-function abrirModalAdmin() { document.getElementById('modalAdmin').style.display = 'flex'; }
-function fecharModalAdmin() { document.getElementById('modalAdmin').style.display = 'none'; }
-function fecharModalCliente() { document.getElementById('modalCliente').style.display = 'none'; }
+// --- Tela de Personalização & Compra ---
+function abrirTelaCompra(id) {
+    const produto = listaProdutosGlobal.find((p) => p.id === id);
+    if (!produto) return;
 
-function fecharModaisAtivos() {
-    ['modalPersonalizar', 'modalCarrinho', 'modalAdmin', 'modalCliente'].forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-    });
+    produtoSelecionadoCompra = produto;
+    const precoNum = parseFloat(produto.preco) || 0;
+    const precoAntigoNum = produto.preco_antigo ? parseFloat(produto.preco_antigo) : null;
+
+    const imgEl = document.getElementById('compraImagem');
+    const tituloEl = document.getElementById('compraTitulo');
+    const precoEl = document.getElementById('compraPreco');
+    const antigoEl = document.getElementById('compraPrecoAntigo');
+    const blocoTamanho = document.getElementById('blocoTamanhoAnelPulseira');
+    const controles3D = document.getElementById('controlesModelo3D');
+    const container3D = document.getElementById('containerGetLayers');
+
+    if (container3D) {
+        container3D.innerHTML = '';
+        container3D.style.display = 'none';
+    }
+    if (imgEl) {
+        imgEl.src = produto.imagem || 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=700';
+        imgEl.style.display = 'block';
+    }
+    if (controles3D) {
+        controles3D.style.display = produto.modelo_3d_url ? 'flex' : 'none';
+    }
+
+    if (tituloEl) tituloEl.textContent = produto.texto || 'Acessório Florenza';
+    if (precoEl) precoEl.textContent = produto.preco ? formatarBRL(precoNum) : 'Sob consulta';
+
+    if (antigoEl) {
+        if (precoAntigoNum) {
+            antigoEl.textContent = formatarBRL(precoAntigoNum);
+            antigoEl.style.display = 'inline';
+        } else {
+            antigoEl.style.display = 'none';
+        }
+    }
+
+    if (blocoTamanho) {
+        blocoTamanho.style.display = produto.anel_pulseira_ativo === true ? 'block' : 'none';
+        if (produto.anel_pulseira_ativo === true) {
+            document.querySelectorAll('input[name="tamanhoItem"]').forEach((r) => {
+                r.checked = (r.value === tamanhoRapidoSelecionado);
+            });
+        }
+    }
+
+    setModalDisplay('stageTrilho', 'none');
+    setModalDisplay('stageCompra', 'block');
+}
+
+function alternarVisualizacaoMedia(modo) {
+    const imgEl = document.getElementById('compraImagem');
+    const container3D = document.getElementById('containerGetLayers');
+    if (!imgEl || !container3D || !produtoSelecionadoCompra) return;
+
+    if (modo === '3d' && produtoSelecionadoCompra.modelo_3d_url) {
+        imgEl.style.display = 'none';
+        container3D.style.display = 'block';
+        if (!container3D.querySelector('iframe')) {
+            const iframe = document.createElement('iframe');
+            iframe.src = produtoSelecionadoCompra.modelo_3d_url;
+            iframe.allow = 'autoplay; fullscreen; xr-spatial-tracking';
+            container3D.appendChild(iframe);
+        }
+    } else {
+        container3D.style.display = 'none';
+        imgEl.style.display = 'block';
+    }
+}
+
+function voltarAoTrilho() {
+    produtoSelecionadoCompra = null;
+    const container3D = document.getElementById('containerGetLayers');
+    if (container3D) container3D.innerHTML = '';
+    setModalDisplay('stageCompra', 'none');
+    setModalDisplay('stageTrilho', 'flex');
+    centralizarItemAtivo();
 }
 
 function adicionarProdutoAtualAoCarrinho() {
-    const p = produtosVisiveis[indiceAtivo];
-    if (!p) return;
+    if (!produtoSelecionadoCompra) return;
 
-    const emb = document.querySelector('input[name="tipoEmbalagem"]:checked')?.value || 'Caixinha Personalizada';
+    const p = produtoSelecionadoCompra;
+    const nomeBase = p.texto || 'Acessório Florenza';
+    const preco = parseFloat(p.preco) || 0;
+
+    const tipoEmbalagem = document.querySelector('input[name="tipoEmbalagem"]:checked')?.value || 'Caixinha Personalizada';
     const cor = document.querySelector('input[name="corEmbalagem"]:checked')?.value || 'Rosa';
-    const tam = p.anel_pulseira_ativo === true
-        ? (document.querySelector('input[name="tamanhoItem"]:checked')?.value || 'P (14/15)')
+    const tamanho = p.anel_pulseira_ativo === true
+        ? (document.querySelector('input[name="tamanhoItem"]:checked')?.value || tamanhoRapidoSelecionado)
         : null;
 
-    const detalhes = `${emb} · Cor: ${cor}${tam ? ` · Tam: ${tam}` : ''}`;
-    const key = `${p.id}-${emb}-${cor}-${tam || 'unico'}`;
-    const existente = carrinho.find((item) => item.key === key);
+    const detalhesTexto = `${tipoEmbalagem} · Cor: ${cor}${tamanho ? ` · Tam: ${tamanho}` : ''}`;
+    const itemKey = `${p.id}-${tipoEmbalagem}-${cor}-${tamanho || 'unico'}`;
 
+    const existente = carrinho.find((item) => item.key === itemKey);
     if (existente) {
         existente.quantidade += 1;
     } else {
-        carrinho.push({ key, id: p.id, nome: p.texto || 'Peça Florenza', detalhes, preco: parseFloat(p.preco) || 0, quantidade: 1 });
+        carrinho.push({ key: itemKey, id: p.id, nome: nomeBase, detalhes: detalhesTexto, preco, quantidade: 1 });
     }
 
-    document.getElementById('contadorCarrinho').textContent = carrinho.reduce((s, i) => s + i.quantidade, 0);
-    fecharModalPersonalizar();
+    salvarCarrinho();
+    atualizarContadorSacola();
+
+    p.carrinho_count = (p.carrinho_count || 0) + 1;
+    fetch(`${SUPABASE_URL}/rest/v1/tarefas?id=eq.${p.id}`, {
+        method: 'PATCH',
+        headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ carrinho_count: p.carrinho_count })
+    }).catch(() => {});
+
     abrirCarrinho();
+}
+
+// --- Sacola Lateral & WhatsApp ---
+function atualizarContadorSacola() {
+    const total = carrinho.reduce((acc, item) => acc + item.quantidade, 0);
+    const el = document.getElementById('contadorCarrinho');
+    if (el) el.textContent = total;
+}
+
+function removerItemCarrinho(index) {
+    carrinho.splice(index, 1);
+    salvarCarrinho();
+    atualizarContadorSacola();
+    renderizarCarrinho();
+}
+
+function adicionarSugestaoRapida(id) {
+    const p = listaProdutosGlobal.find((item) => item.id === id);
+    if (!p) return;
+
+    const preco = parseFloat(p.preco) || 0;
+    const detalhesTexto = 'Caixinha Personalizada · Cor: Rosa';
+    const itemKey = `${p.id}-Caixinha Personalizada-Rosa-unico`;
+
+    const existente = carrinho.find((item) => item.key === itemKey);
+    if (existente) {
+        existente.quantidade += 1;
+    } else {
+        carrinho.push({ key: itemKey, id: p.id, nome: p.texto || 'Acessório Florenza', detalhes: detalhesTexto, preco, quantidade: 1 });
+    }
+
+    salvarCarrinho();
+    atualizarContadorSacola();
+    renderizarCarrinho();
+}
+
+function renderizarSugestoesSacola() {
+    const box = document.getElementById('sugestoesSacola');
+    if (!box) return;
+
+    const extras = listaProdutosGlobal.filter((p) => !carrinho.some((c) => c.id === p.id)).slice(0, 2);
+    if (!extras.length) {
+        box.innerHTML = '';
+        return;
+    }
+
+    box.innerHTML = `<strong>Complete seu pedido:</strong>` + extras.map((p) => `
+        <div class="suggestion-row">
+            <span>${p.texto || 'Peça Florenza'} — <strong>${formatarBRL(parseFloat(p.preco) || 0)}</strong></span>
+            <button type="button" class="btn btn-outline btn-sm" onclick="adicionarSugestaoRapida(${p.id})">+ Add</button>
+        </div>
+    `).join('');
 }
 
 function renderizarCarrinho() {
     const lista = document.getElementById('listaItensCarrinho');
     const totalEl = document.getElementById('carrinhoTotalPreco');
-    lista.innerHTML = '';
+    if (!lista || !totalEl) return;
 
+    lista.innerHTML = '';
     if (!carrinho.length) {
-        lista.innerHTML = '<p style="color: var(--muted-color); text-align: center; margin-top: 30px;">Sua sacola está vazia.</p>';
+        lista.innerHTML = '<p style="color: var(--text-muted); text-align: center; margin-top: 40px;">Sua sacola está vazia.</p>';
         totalEl.textContent = 'R$ 0,00';
+        renderizarSugestoesSacola();
         return;
     }
 
-    let total = 0;
-    carrinho.forEach((item, idx) => {
-        const sub = item.preco * item.quantidade;
-        total += sub;
+    let totalGeral = 0;
+    carrinho.forEach((item, index) => {
+        const subtotal = item.preco * item.quantidade;
+        totalGeral += subtotal;
+
         const row = document.createElement('div');
         row.className = 'cart-item-row';
         row.innerHTML = `
             <div>
-                <strong>${item.nome}</strong> x${item.quantidade}
-                <small style="display:block; color: var(--muted-color);">${item.detalhes}</small>
+                <strong>${item.nome}</strong> <span>x${item.quantidade}</span>
+                <span class="cart-item-meta">${item.detalhes}</span>
             </div>
-            <div>
-                <strong>${formatarBRL(sub)}</strong>
-                <button type="button" class="cart-remove-btn" onclick="removerItemCarrinho(${idx})">✕</button>
+            <div style="text-align: right; white-space: nowrap;">
+                <strong>${formatarBRL(subtotal)}</strong>
+                <button type="button" class="cart-remove-btn" onclick="removerItemCarrinho(${index})" title="Remover">✕</button>
             </div>
         `;
         lista.appendChild(row);
     });
-    totalEl.textContent = formatarBRL(total);
-}
 
-function removerItemCarrinho(idx) {
-    carrinho.splice(idx, 1);
-    document.getElementById('contadorCarrinho').textContent = carrinho.reduce((s, i) => s + i.quantidade, 0);
-    renderizarCarrinho();
+    totalEl.textContent = formatarBRL(totalGeral);
+    renderizarSugestoesSacola();
 }
 
 function finalizarCompra() {
-    if (!carrinho.length) return alert('Sua sacola está vazia!');
-    let msg = 'Olá, *Florenza Bijouterias*! ✨%0AGostaria de finalizar meu pedido:%0A%0A';
-    let total = 0;
+    if (!carrinho.length) {
+        alert('Sua sacola está vazia!');
+        return;
+    }
+
+    const emailCliente = getStorageSafe('florenza_cliente_email') || 'Cliente Vitrine';
+    let mensagem = `Olá, *Florenza Bijouterias*! ✨\nGostaria de finalizar o pedido:\n(E-mail: ${emailCliente})\n\n`;
+    let totalGeral = 0;
+
     carrinho.forEach((item) => {
-        const sub = item.preco * item.quantidade;
-        total += sub;
-        msg += `• *${item.nome}* x${item.quantidade}%0A  _${item.detalhes}_ — ${formatarBRL(sub)}%0A`;
+        const subtotal = item.preco * item.quantidade;
+        totalGeral += subtotal;
+        mensagem += `• *${item.nome}* x${item.quantidade}\n  _${item.detalhes}_ — ${formatarBRL(subtotal)}\n`;
     });
-    msg += `%0A*Total: ${formatarBRL(total)}*`;
+
+    mensagem += `\n*Total do Pedido: ${formatarBRL(totalGeral)}*`;
 
     totalVendasConcluidas += 1;
-    receitaTotalAcumulada += total;
-    document.getElementById('adminTotalVendas').textContent = totalVendasConcluidas;
-    document.getElementById('adminReceitaTotal').textContent = formatarBRL(receitaTotalAcumulada);
+    receitaTotalAcumulada += totalGeral;
+    atualizarDashboardVendas();
 
-    window.open(`https://wa.me/${WHATSAPP_LOJA}?text=${msg}`, '_blank');
+    window.open(`https://wa.me/${WHATSAPP_LOJA}?text=${encodeURIComponent(mensagem)}`, '_blank', 'noopener,noreferrer');
+
     carrinho = [];
-    document.getElementById('contadorCarrinho').textContent = '0';
+    salvarCarrinho();
+    atualizarContadorSacola();
     fecharCarrinho();
 }
 
-async function darLike(id) {
-    const p = listaProdutosGlobal.find((item) => item.id === id);
-    if (!p) return;
-    p.likes = (p.likes || 0) + 1;
-    document.getElementById('focoLikes').textContent = p.likes;
-    fetch(`${SUPABASE_URL}/rest/v1/tarefas?id=eq.${id}`, {
-        method: 'PATCH',
-        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ likes: p.likes })
-    }).catch(() => {});
+function atualizarDashboardVendas() {
+    const elVendas = document.getElementById('adminTotalVendas');
+    const elReceita = document.getElementById('adminReceitaTotal');
+    if (elVendas) elVendas.textContent = totalVendasConcluidas;
+    if (elReceita) elReceita.textContent = formatarBRL(receitaTotalAcumulada);
 }
 
-async function verificarSessao() {
-    if (!_supabase) return;
-    const { data } = await _supabase.auth.getSession();
-    const session = data?.session;
-    document.getElementById('formLoginView').style.display = session ? 'none' : 'block';
-    document.getElementById('formCadastroView').style.display = session ? 'block' : 'none';
-}
-
-async function fazerLogin() {
-    if (!_supabase) return;
-    const email = document.getElementById('emailLogin').value.trim();
-    const password = document.getElementById('senhaLogin').value;
-    const { error } = await _supabase.auth.signInWithPassword({ email, password });
-    if (error) return alert('Erro ao entrar: ' + error.message);
-    verificarSessao();
-}
-
-async function fazerLogout() {
-    if (_supabase) await _supabase.auth.signOut();
-    verificarSessao();
-    fecharModalAdmin();
-}
-
+// --- CRUD Admin ---
 async function adicionarProduto() {
-    const nome = document.getElementById('nomeProduto').value.trim();
-    const preco = document.getElementById('precoProduto').value.trim().replace(',', '.');
-    const precoAntigo = document.getElementById('precoAntigoProduto').value.trim().replace(',', '.');
-    const imagem = document.getElementById('imagemProduto').value.trim();
-    const modelo3d = document.getElementById('modelo3dProduto').value.trim();
-    const anelPulseiraAtivo = document.getElementById('adminAtivoAnelPulseira').checked;
+    const nome = document.getElementById('nomeProduto')?.value.trim();
+    const preco = (document.getElementById('precoProduto')?.value || '').trim().replace(',', '.');
+    const precoAntigo = (document.getElementById('precoAntigoProduto')?.value || '').trim().replace(',', '.');
+    const imagem = (document.getElementById('imagemProduto')?.value || '').trim();
+    const modelo3d = (document.getElementById('modelo3dProduto')?.value || '').trim();
+    const anelPulseiraAtivo = Boolean(document.getElementById('adminAtivoAnelPulseira')?.checked);
 
-    if (!nome) return alert('Informe o nome da peça.');
+    if (!nome) {
+        alert('Informe o nome da peça.');
+        return;
+    }
 
-    const payload = { texto: nome };
-    if (preco) payload.preco = preco;
-    if (precoAntigo) payload.preco_antigo = precoAntigo;
-    if (imagem) payload.imagem = imagem;
-    if (modelo3d) payload.modelo_3d_url = modelo3d;
-    if (anelPulseiraAtivo) payload.anel_pulseira_ativo = true;
+    const novoItem = { texto: nome };
+    if (preco) novoItem.preco = preco;
+    if (precoAntigo) novoItem.preco_antigo = precoAntigo;
+    if (imagem) novoItem.imagem = imagem;
+    if (modelo3d) novoItem.modelo_3d_url = modelo3d;
+    if (anelPulseiraAtivo) novoItem.anel_pulseira_ativo = true;
 
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/tarefas`, {
-        method: 'POST',
-        headers: {
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            Prefer: 'return=minimal'
-        },
-        body: JSON.stringify([payload])
-    });
+    const postProduto = async (payload) => {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/tarefas`, {
+            method: 'POST',
+            headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                Prefer: 'return=minimal'
+            },
+            body: JSON.stringify([payload])
+        });
+        if (!res.ok) {
+            const errTxt = await res.text();
+            throw new Error(errTxt || ('HTTP ' + res.status));
+        }
+    };
 
-    if (!res.ok) return alert('Erro ao publicar peça no Supabase.');
+    try {
+        await postProduto(novoItem);
+    } catch (err) {
+        const msg = String(err.message);
+        if (msg.includes('anel_pulseira_ativo') || msg.includes('modelo_3d_url')) {
+            delete novoItem.anel_pulseira_ativo;
+            delete novoItem.modelo_3d_url;
+            try {
+                await postProduto(novoItem);
+                alert('Peça publicada! Crie as colunas opcionais "anel_pulseira_ativo" (bool) e "modelo_3d_url" (text) na tabela "tarefas" do Supabase.');
+            } catch (err2) {
+                alert('Erro ao publicar: ' + err2.message);
+                return;
+            }
+        } else {
+            alert('Erro ao publicar: ' + err.message);
+            return;
+        }
+    }
 
+    document.getElementById('nomeProduto').value = '';
+    document.getElementById('precoProduto').value = '';
+    document.getElementById('precoAntigoProduto').value = '';
+    document.getElementById('imagemProduto').value = '';
+    document.getElementById('modelo3dProduto').value = '';
+    document.getElementById('adminAtivoAnelPulseira').checked = false;
     fecharModalAdmin();
-    sessionStorage.removeItem(CACHE_PRODUTOS_KEY);
-    init();
+    carregarProdutos();
 }
+
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal-overlay')) {
+        e.target.style.display = 'none';
+        if (e.target.id === 'modalCliente') {
+            setStorageSafe('florenza_cliente_email', 'visitante@florenza.com');
+        }
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        fecharBuscaTopo();
+    }
+});
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
