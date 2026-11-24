@@ -3,10 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Florenza Bijouterias | Beleza · Estilo · Você</title>
+    <title>Florenza Bijouterias | Apresentação & Coleção</title>
     <link rel="stylesheet" href="./style.css">
 </head>
 <body>
+
+    <!-- Tela de Carregamento Inicial com a Logo Florenza -->
+    <div id="preloaderFlorenza" class="preloader-overlay" aria-label="Carregando Florenza Bijouterias">
+        <div class="preloader-box">
+            <div class="preloader-crown">♔</div>
+            <div class="preloader-monogram">F</div>
+            <h1 class="preloader-title">FLORENZA</h1>
+            <span class="preloader-sub">BIJOUTERIAS</span>
+            <div class="preloader-bar">
+                <div class="preloader-bar-fill"></div>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal de Identificação do Cliente -->
     <div id="modalCliente" class="modal-overlay" style="display: none;">
@@ -34,13 +47,13 @@
         </div>
     </div>
 
-    <!-- Barra Superior com Lupa Sempre Visível e Modo Expandido -->
+    <!-- Header Superior com Lupa Visível & Expansível -->
     <header class="navbar" id="navbar">
         <div class="nav-container">
             <a href="#" class="brand" onclick="voltarAoTrilho(); return false;">
                 <div class="brand-monogram">F</div>
                 <div class="brand-logo-text">
-                    <h1>FLORENZA</h1>
+                    <h2>FLORENZA</h2>
                     <span>BIJOUTERIAS</span>
                 </div>
             </a>
@@ -68,55 +81,61 @@
         </div>
     </header>
 
-    <!-- Cabeçalho Editorial Florenza -->
-    <section class="florenza-hero-strip">
-        <div class="hero-strip-inner">
-            <span class="hero-tag">♔ SEU BRILHO, NOSSA INSPIRAÇÃO</span>
-            <h2>Detalhes que fazem você ainda mais <em>única</em>.</h2>
-            <div class="hero-mini-perks">
-                <span>✦ Caixinhas & Sacolas</span>
-                <span>✦ Mimo Especial</span>
-                <span>✦ Atendimento no WhatsApp</span>
-            </div>
-        </div>
-    </section>
-
-    <!-- Palco 1: Trilho Interativo em Destaque -->
+    <!-- Palco 1: Apresentação com o Modelo em Destaque + Trilho -->
     <main id="stageTrilho" class="stage-rail">
+        <!-- Apresentação Principal do Modelo Ativo -->
+        <section id="showcaseModeloAtivo" class="model-hero-stage">
+            <div class="model-hero-media">
+                <img id="heroModeloImg" src="https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800" alt="Modelo Florenza">
+                <div id="heroModelo3DWrap" class="hero-3d-wrap" style="display: none;"></div>
+                <div id="heroModeloToggle3D" class="hero-3d-floating-controls" style="display: none;">
+                    <button type="button" id="btnHeroFoto" class="btn btn-secondary btn-sm" onclick="alternarHeroModelo('foto')">📷 Foto</button>
+                    <button type="button" id="btnHero3D" class="btn btn-dark btn-sm" onclick="alternarHeroModelo('3d')">🧊 Modelo 3D</button>
+                </div>
+            </div>
+
+            <div class="model-hero-info">
+                <span class="hero-tag">♔ APRESENTAÇÃO FLORENZA · BELEZA · ESTILO · VOCÊ</span>
+                <h1 id="heroModeloTitulo">Detalhes que fazem você ainda mais <em>única</em>.</h1>
+                <p id="heroModeloSubtitulo" class="hero-model-desc">Escolha sua peça no trilho abaixo, personalize caixinha ou sacola na cor da sua preferência e finalize direto no WhatsApp.</p>
+
+                <div class="hero-price-row">
+                    <span id="heroModeloPreco" class="focus-price" style="font-size: 1.25rem;">R$ 0,00</span>
+                    <span id="heroModeloPrecoAntigo" class="card-old-price"></span>
+                </div>
+
+                <div id="focoTamanhosRapidos" class="focus-sizes" style="display: none;"></div>
+
+                <div class="focus-actions" style="margin-top: 14px;">
+                    <button type="button" id="btnCurtirAtivo" class="btn btn-outline btn-sm">♥ <span id="focoLikes">0</span></button>
+                    <button type="button" id="btnAbrirCompraAtivo" class="btn btn-dark">Personalizar & Comprar</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Trilho de Peças da Coleção -->
         <div class="rail-viewport">
             <button type="button" class="rail-arrow rail-prev" onclick="moverTrilho(-1)" aria-label="Anterior">‹</button>
             <div id="trilhoProdutos" class="rail-track"></div>
             <button type="button" class="rail-arrow rail-next" onclick="moverTrilho(1)" aria-label="Próxima">›</button>
-        </div>
-
-        <!-- Painel Inferior da Peça em Destaque -->
-        <div id="painelFocoAtivo" class="rail-focus-bar">
-            <div class="focus-info">
-                <span class="focus-eyebrow">EM DESTAQUE NA VITRINE</span>
-                <span id="focoTitulo" class="focus-title">Coleção Florenza</span>
-                <div class="focus-subrow">
-                    <span id="focoPreco" class="focus-price">R$ 0,00</span>
-                    <span id="focoPrecoAntigo" class="card-old-price"></span>
-                </div>
-            </div>
-
-            <div id="focoTamanhosRapidos" class="focus-sizes" style="display: none;"></div>
-
-            <div class="focus-actions">
-                <button type="button" id="btnCurtirAtivo" class="btn btn-outline btn-sm">♥ <span id="focoLikes">0</span></button>
-                <button type="button" id="btnAbrirCompraAtivo" class="btn btn-dark">Personalizar & Comprar</button>
-            </div>
         </div>
     </main>
 
     <!-- Palco 2: Tela de Personalização & Compra -->
     <section id="stageCompra" class="stage-purchase" style="display: none;">
         <div class="purchase-container">
-            <button type="button" class="btn btn-outline back-rail-btn" onclick="voltarAoTrilho()">← Voltar à Vitrine</button>
+            <button type="button" class="btn btn-outline back-rail-btn" onclick="voltarAoTrilho()">← Voltar à Apresentação</button>
 
             <div class="purchase-split">
                 <div class="purchase-media">
-                    <img id="compraImagem" src="" alt="">
+                    <div class="media-stage-box">
+                        <img id="compraImagem" src="" alt="">
+                        <div id="containerGetLayers" class="getlayers-embed-wrap" style="display: none;"></div>
+                    </div>
+                    <div id="controlesModelo3D" class="media-toggle-bar" style="display: none;">
+                        <button type="button" class="btn btn-outline btn-sm" onclick="alternarVisualizacaoMedia('foto')">📷 Foto</button>
+                        <button type="button" class="btn btn-dark btn-sm" onclick="alternarVisualizacaoMedia('3d')">🧊 Modelo 3D</button>
+                    </div>
                 </div>
 
                 <div class="purchase-details">
@@ -168,7 +187,7 @@
                             </div>
                         </div>
 
-                        <!-- Tamanho Condicional (Aparece APENAS se ativo no Admin) -->
+                        <!-- Tamanho Condicional (Só aparece se ativo no Admin) -->
                         <div class="option-group" id="blocoTamanhoAnelPulseira" style="display: none;">
                             <label>Tamanho (Anel / Pulseira)</label>
                             <div class="size-options-row">
@@ -264,6 +283,11 @@
                 <div class="input-group">
                     <label for="imagemProduto">URL da Foto</label>
                     <input type="url" id="imagemProduto" placeholder="https://exemplo.com/foto.jpg">
+                </div>
+
+                <div class="input-group">
+                    <label for="modelo3dProduto">URL Embed Get Layers (Opcional - Modelo 3D)</label>
+                    <input type="url" id="modelo3dProduto" placeholder="https://...">
                 </div>
 
                 <div class="checkbox-group admin-toggle-box">
