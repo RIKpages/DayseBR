@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://finmivasfcnnjntfaeei.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpbm1pdmFzZmNubmpudGZhZWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwNzY2MTIsImV4cCI6MjEwNzY1MjYxMn0.0IURfOPO9ExLv4D2VM03ENyPIBzG2iy9xEyE1gtlFd0';
 const WHATSAPP_LOJA = '5511999999999'; // Substitua pelo WhatsApp real com DDI + DDD + número
-const CACHE_PRODUTOS_KEY = 'florenza_vitrine_cache_v2';
+const CACHE_PRODUTOS_KEY = 'florenza_vitrine_cache_v3';
 
 let _supabase = null;
 try {
@@ -23,6 +23,7 @@ let carrinho = [];
 let totalVendasConcluidas = 0;
 let receitaTotalAcumulada = 0;
 let usuarioAdmin = false;
+let preloaderEncerrado = false;
 
 function formatarBRL(valor) {
     const num = Number(valor) || 0;
@@ -32,6 +33,13 @@ function formatarBRL(valor) {
 function setModalDisplay(id, estado) {
     const el = document.getElementById(id);
     if (el) el.style.display = estado;
+}
+
+function esconderLogoCarregamento() {
+    if (preloaderEncerrado) return;
+    preloaderEncerrado = true;
+    const preloader = document.getElementById('preloaderFlorenza');
+    if (preloader) preloader.classList.add('is-hidden');
 }
 
 function getStorageSafe(chave) {
@@ -68,7 +76,7 @@ function salvarCacheVitrine(produtos) {
 async function buscarProdutosRapido(timeoutMs = 5000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const colunas = 'id,texto,preco,preco_antigo,imagem,likes,carrinho_count,anel_pulseira_ativo';
+    const colunas = 'id,texto,preco,preco_antigo,imagem,likes,carrinho_count,anel_pulseira_ativo,modelo_3d_url';
 
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/tarefas?select=${colunas}&order=id.desc`, {
@@ -91,14 +99,19 @@ async function buscarProdutosRapido(timeoutMs = 5000) {
     }
 }
 
-// --- Inicialização ---
+// --- Inicialização com Logo de Carregamento ---
 function init() {
+    // Garantia de segurança: fecha a logo de carregamento no máximo em 1.5s mesmo em rede lenta
+    const fallbackLogoTimer = setTimeout(esconderLogoCarregamento, 1500);
+
     const emCache = lerCacheVitrine();
     if (emCache && emCache.length) {
         listaProdutosGlobal = emCache;
         produtosVisiveis = [...emCache];
         indiceAtivo = 0;
         renderTrilho(produtosVisiveis);
+        clearTimeout(fallbackLogoTimer);
+        setTimeout(esconderLogoCarregamento, 450);
     } else {
         const trilho = document.getElementById('trilhoProdutos');
         if (trilho) {
@@ -107,11 +120,14 @@ function init() {
     }
 
     verificarSessao();
-    carregarProdutos(Boolean(emCache && emCache.length));
+    carregarProdutos(Boolean(emCache && emCache.length)).finally(() => {
+        clearTimeout(fallbackLogoTimer);
+        setTimeout(esconderLogoCarregamento, 350);
+    });
 
     const clienteLogado = getStorageSafe('florenza_cliente_email');
     if (!clienteLogado) {
-        setModalDisplay('modalCliente', 'flex');
+        setTimeout(() => setModalDisplay('modalCliente', 'flex'), 1600);
     }
 }
 
@@ -235,7 +251,7 @@ async function fazerLogout() {
     fecharModalAdmin();
 }
 
-// --- Carregamento & Trilho ---
+// --- Carregamento & Apresentação do Modelo ---
 async function carregarProdutos(jaTemCache = false) {
     const trilho = document.getElementById('trilhoProdutos');
     if (!trilho) return;
@@ -260,9 +276,9 @@ async function carregarProdutos(jaTemCache = false) {
     } catch (err) {
         if (!jaTemCache) {
             trilho.innerHTML = `
-                <div style="text-align:center; margin: 0 auto; padding: 16px;">
-                    <p style="color: var(--accent-red); margin-bottom: 10px;">Não foi possível carregar a vitrine agora.</p>
-                    <button type="button" class="btn btn-dark" onclick="carregarProdutos(false)">Tentar novamente</button>
+                <div style="text-align:center; margin: 0 auto; padding: 12px;">
+                    <p style="color: var(--accent-red); margin-bottom: 8px;">Não foi possível carregar as peças agora.</p>
+                    <button type="button" class="btn btn-dark btn-sm" onclick="carregarProdutos(false)">Tentar novamente</button>
                 </div>
             `;
         }
@@ -271,16 +287,12 @@ async function carregarProdutos(jaTemCache = false) {
 
 function renderTrilho(produtos) {
     const trilho = document.getElementById('trilhoProdutos');
-    const focoTitulo = document.getElementById('focoTitulo');
-    const focoPreco = document.getElementById('focoPreco');
     if (!trilho) return;
 
     trilho.innerHTML = '';
 
     if (!produtos.length) {
         trilho.innerHTML = '<p style="color: var(--text-muted); margin: 0 auto;">Nenhuma peça encontrada.</p>';
-        if (focoTitulo) focoTitulo.textContent = 'Sem peças no momento';
-        if (focoPreco) focoPreco.textContent = '';
         return;
     }
 
@@ -297,13 +309,7 @@ function renderTrilho(produtos) {
 
         const item = document.createElement('article');
         item.className = `rail-item ${idx === indiceAtivo ? 'is-active' : ''}`;
-        item.onclick = () => {
-            if (idx === indiceAtivo) {
-                abrirTelaCompra(p.id);
-            } else {
-                selecionarIndiceTrilho(idx);
-            }
-        };
+        item.onclick = () => selecionarIndiceTrilho(idx);
 
         const imgWrap = document.createElement('div');
         imgWrap.className = 'rail-img-wrap';
@@ -351,7 +357,7 @@ function renderTrilho(produtos) {
     });
 
     trilho.appendChild(fragment);
-    atualizarBarraFoco(produtos[indiceAtivo]);
+    atualizarApresentacaoModelo(produtos[indiceAtivo]);
     centralizarItemAtivo();
 }
 
@@ -364,7 +370,7 @@ function selecionarIndiceTrilho(novoIndice) {
         el.classList.toggle('is-active', i === indiceAtivo);
     });
 
-    atualizarBarraFoco(produtosVisiveis[indiceAtivo]);
+    atualizarApresentacaoModelo(produtosVisiveis[indiceAtivo]);
     centralizarItemAtivo();
 }
 
@@ -381,20 +387,40 @@ function centralizarItemAtivo() {
     trilho.scrollLeft = Math.max(0, targetScroll);
 }
 
-function atualizarBarraFoco(produto) {
+function atualizarApresentacaoModelo(produto) {
     if (!produto) return;
+
     const precoNum = parseFloat(produto.preco) || 0;
     const precoAntigoNum = produto.preco_antigo ? parseFloat(produto.preco_antigo) : null;
+    const imagem = produto.imagem || 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800';
 
-    const tituloEl = document.getElementById('focoTitulo');
-    const precoEl = document.getElementById('focoPreco');
-    const antigoEl = document.getElementById('focoPrecoAntigo');
+    const heroImg = document.getElementById('heroModeloImg');
+    const hero3DWrap = document.getElementById('heroModelo3DWrap');
+    const heroToggle3D = document.getElementById('heroModeloToggle3D');
+    const tituloEl = document.getElementById('heroModeloTitulo');
+    const precoEl = document.getElementById('heroModeloPreco');
+    const antigoEl = document.getElementById('heroModeloPrecoAntigo');
     const likesEl = document.getElementById('focoLikes');
     const sizesBox = document.getElementById('focoTamanhosRapidos');
     const btnCurtir = document.getElementById('btnCurtirAtivo');
     const btnComprar = document.getElementById('btnAbrirCompraAtivo');
 
-    if (tituloEl) tituloEl.textContent = produto.texto || 'Acessório Florenza';
+    if (hero3DWrap) {
+        hero3DWrap.innerHTML = '';
+        hero3DWrap.style.display = 'none';
+    }
+    if (heroImg) {
+        heroImg.src = imagem;
+        heroImg.style.display = 'block';
+    }
+    if (heroToggle3D) {
+        heroToggle3D.style.display = produto.modelo_3d_url ? 'flex' : 'none';
+    }
+
+    if (tituloEl) {
+        const nome = produto.texto || 'Acessório Florenza';
+        tituloEl.innerHTML = `${nome} — <em>seu brilho, nossa inspiração</em>.`;
+    }
     if (precoEl) precoEl.textContent = produto.preco ? formatarBRL(precoNum) : 'Sob consulta';
     if (antigoEl) {
         if (precoAntigoNum) {
@@ -423,9 +449,30 @@ function atualizarBarraFoco(produto) {
     if (btnComprar) btnComprar.onclick = () => abrirTelaCompra(produto.id);
 }
 
+function alternarHeroModelo(modo) {
+    const produto = produtosVisiveis[indiceAtivo];
+    const heroImg = document.getElementById('heroModeloImg');
+    const hero3DWrap = document.getElementById('heroModelo3DWrap');
+    if (!produto || !heroImg || !hero3DWrap) return;
+
+    if (modo === '3d' && produto.modelo_3d_url) {
+        heroImg.style.display = 'none';
+        hero3DWrap.style.display = 'block';
+        if (!hero3DWrap.querySelector('iframe')) {
+            const iframe = document.createElement('iframe');
+            iframe.src = produto.modelo_3d_url;
+            iframe.allow = 'autoplay; fullscreen; xr-spatial-tracking';
+            hero3DWrap.appendChild(iframe);
+        }
+    } else {
+        hero3DWrap.style.display = 'none';
+        heroImg.style.display = 'block';
+    }
+}
+
 function escolherTamanhoRapido(tam) {
     tamanhoRapidoSelecionado = tam;
-    atualizarBarraFoco(produtosVisiveis[indiceAtivo]);
+    atualizarApresentacaoModelo(produtosVisiveis[indiceAtivo]);
 }
 
 function filtrarProdutos() {
@@ -472,8 +519,21 @@ function abrirTelaCompra(id) {
     const precoEl = document.getElementById('compraPreco');
     const antigoEl = document.getElementById('compraPrecoAntigo');
     const blocoTamanho = document.getElementById('blocoTamanhoAnelPulseira');
+    const controles3D = document.getElementById('controlesModelo3D');
+    const container3D = document.getElementById('containerGetLayers');
 
-    if (imgEl) imgEl.src = produto.imagem || 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=700';
+    if (container3D) {
+        container3D.innerHTML = '';
+        container3D.style.display = 'none';
+    }
+    if (imgEl) {
+        imgEl.src = produto.imagem || 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=700';
+        imgEl.style.display = 'block';
+    }
+    if (controles3D) {
+        controles3D.style.display = produto.modelo_3d_url ? 'flex' : 'none';
+    }
+
     if (tituloEl) tituloEl.textContent = produto.texto || 'Acessório Florenza';
     if (precoEl) precoEl.textContent = produto.preco ? formatarBRL(precoNum) : 'Sob consulta';
 
@@ -499,8 +559,30 @@ function abrirTelaCompra(id) {
     setModalDisplay('stageCompra', 'block');
 }
 
+function alternarVisualizacaoMedia(modo) {
+    const imgEl = document.getElementById('compraImagem');
+    const container3D = document.getElementById('containerGetLayers');
+    if (!imgEl || !container3D || !produtoSelecionadoCompra) return;
+
+    if (modo === '3d' && produtoSelecionadoCompra.modelo_3d_url) {
+        imgEl.style.display = 'none';
+        container3D.style.display = 'block';
+        if (!container3D.querySelector('iframe')) {
+            const iframe = document.createElement('iframe');
+            iframe.src = produtoSelecionadoCompra.modelo_3d_url;
+            iframe.allow = 'autoplay; fullscreen; xr-spatial-tracking';
+            container3D.appendChild(iframe);
+        }
+    } else {
+        container3D.style.display = 'none';
+        imgEl.style.display = 'block';
+    }
+}
+
 function voltarAoTrilho() {
     produtoSelecionadoCompra = null;
+    const container3D = document.getElementById('containerGetLayers');
+    if (container3D) container3D.innerHTML = '';
     setModalDisplay('stageCompra', 'none');
     setModalDisplay('stageTrilho', 'flex');
     centralizarItemAtivo();
@@ -545,7 +627,7 @@ function adicionarProdutoAtualAoCarrinho() {
     abrirCarrinho();
 }
 
-// --- Sacola Lateral ---
+// --- Sacola Lateral & WhatsApp ---
 function atualizarContadorSacola() {
     const total = carrinho.reduce((acc, item) => acc + item.quantidade, 0);
     const el = document.getElementById('contadorCarrinho');
@@ -674,6 +756,7 @@ async function adicionarProduto() {
     const preco = (document.getElementById('precoProduto')?.value || '').trim().replace(',', '.');
     const precoAntigo = (document.getElementById('precoAntigoProduto')?.value || '').trim().replace(',', '.');
     const imagem = (document.getElementById('imagemProduto')?.value || '').trim();
+    const modelo3d = (document.getElementById('modelo3dProduto')?.value || '').trim();
     const anelPulseiraAtivo = Boolean(document.getElementById('adminAtivoAnelPulseira')?.checked);
 
     if (!nome) {
@@ -685,6 +768,7 @@ async function adicionarProduto() {
     if (preco) novoItem.preco = preco;
     if (precoAntigo) novoItem.preco_antigo = precoAntigo;
     if (imagem) novoItem.imagem = imagem;
+    if (modelo3d) novoItem.modelo_3d_url = modelo3d;
     if (anelPulseiraAtivo) novoItem.anel_pulseira_ativo = true;
 
     const postProduto = async (payload) => {
@@ -707,11 +791,13 @@ async function adicionarProduto() {
     try {
         await postProduto(novoItem);
     } catch (err) {
-        if (String(err.message).includes('anel_pulseira_ativo')) {
+        const msg = String(err.message);
+        if (msg.includes('anel_pulseira_ativo') || msg.includes('modelo_3d_url')) {
             delete novoItem.anel_pulseira_ativo;
+            delete novoItem.modelo_3d_url;
             try {
                 await postProduto(novoItem);
-                alert('Peça publicada! Crie a coluna booleana "anel_pulseira_ativo" na tabela "tarefas" do Supabase para ativar o seletor de tamanhos.');
+                alert('Peça publicada! Crie as colunas opcionais "anel_pulseira_ativo" (bool) e "modelo_3d_url" (text) na tabela "tarefas" do Supabase.');
             } catch (err2) {
                 alert('Erro ao publicar: ' + err2.message);
                 return;
@@ -726,6 +812,7 @@ async function adicionarProduto() {
     document.getElementById('precoProduto').value = '';
     document.getElementById('precoAntigoProduto').value = '';
     document.getElementById('imagemProduto').value = '';
+    document.getElementById('modelo3dProduto').value = '';
     document.getElementById('adminAtivoAnelPulseira').checked = false;
     fecharModalAdmin();
     carregarProdutos();
