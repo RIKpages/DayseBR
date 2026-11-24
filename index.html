@@ -3,327 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Florenza Bijouterias | Apresentação & Coleção</title>
+    <title>Florenza Bijouterias | Beleza · Estilo · Você</title>
+    <meta name="description" content="Acessórios exclusivos Florenza Bijouterias com caixinhas personalizadas e acabamento premium.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@500;700&family=Galada&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 </head>
 <body>
 
-    <!-- Tela de Carregamento Inicial com a Logo Florenza -->
-    <div id="preloaderFlorenza" class="preloader-overlay" aria-label="Carregando Florenza Bijouterias">
+    <!-- Tela de Loading Funcional (aguarda catálogo + modelo 3D) -->
+    <div id="preloaderFlorenza" class="preloader-overlay" aria-live="polite">
         <div class="preloader-box">
             <div class="preloader-crown">♔</div>
             <div class="preloader-monogram">F</div>
-            <h1 class="preloader-title">FLORENZA</h1>
+            <h2 class="preloader-title">FLORENZA</h2>
             <span class="preloader-sub">BIJOUTERIAS</span>
+            <p id="preloaderStatus" class="preloader-status">Conectando à vitrine...</p>
             <div class="preloader-bar">
-                <div class="preloader-bar-fill"></div>
+                <div id="preloaderBarFill" class="preloader-bar-fill"></div>
             </div>
         </div>
     </div>
 
-    <!-- Modal de Identificação do Cliente -->
-    <div id="modalCliente" class="modal-overlay" style="display: none;">
-        <div class="modal-card">
-            <button type="button" class="btn-close" onclick="fecharModalCliente()" aria-label="Fechar">&times;</button>
-            <div class="brand-modal-header">
-                <span class="brand-crown">♔</span>
-                <h2>FLORENZA</h2>
-                <small>BIJOUTERIAS</small>
-            </div>
-            <p class="subtitle" style="text-align: center;">Mais que acessórios, é sobre você. Receba cupons e novidades no seu e-mail.</p>
+    <!-- Partículas / Brilhos Subindo ao Fundo -->
+    <div id="bubbles-container"></div>
 
-            <div class="input-group">
-                <label for="emailClienteInput">Seu e-mail</label>
-                <input type="email" id="emailClienteInput" placeholder="voce@exemplo.com">
-            </div>
+    <!-- Cabeçalho Glassmorphism -->
+    <header class="header" id="navbar">
+        <a href="#" class="logo" onclick="fecharModaisAtivos(); return false;">
+            <span class="logo-crown">♔</span>
+            <span>Florenza</span>
+        </a>
 
-            <div class="checkbox-group">
-                <input type="checkbox" id="aceitaOfertas" checked>
-                <label for="aceitaOfertas">Quero receber cupons de desconto, novidades e ofertas por e-mail.</label>
-            </div>
+        <nav class="nav glass" id="navGlass">
+            <a href="#" class="nav-item active" onclick="fecharBuscaTopo(); return false;">Vitrine</a>
+            <button type="button" class="nav-item nav-btn-reset" onclick="abrirBuscaTopo()">🔍 Buscar</button>
+            <button type="button" class="nav-item nav-btn-reset" onclick="abrirCarrinho()">
+                🛍️ Sacola (<span id="contadorCarrinho">0</span>)
+            </button>
+            <button type="button" class="nav-item nav-btn-reset" id="btnNavAdmin" onclick="abrirModalAdmin()">Admin</button>
+        </nav>
 
-            <button type="button" onclick="salvarIdentificacaoCliente()" class="btn btn-dark btn-block" style="margin-top: 16px;">Entrar na Vitrine</button>
-            <button type="button" onclick="fecharModalCliente()" class="btn-link-subtle">Continuar navegando</button>
+        <!-- Barra de Busca Expansível no Topo -->
+        <div class="search-expand-bar" id="searchInputWrap" style="display: none;">
+            <input type="text" id="inputBusca" oninput="filtrarProdutos()" placeholder="Buscar peça na coleção Florenza..." autocomplete="off">
+            <button type="button" class="search-close-btn" onclick="fecharBuscaTopo()" aria-label="Fechar busca">&times;</button>
         </div>
-    </div>
 
-    <!-- Header Superior com Lupa Visível & Expansível -->
-    <header class="navbar" id="navbar">
-        <div class="nav-container">
-            <a href="#" class="brand" onclick="voltarAoTrilho(); return false;">
-                <div class="brand-monogram">F</div>
-                <div class="brand-logo-text">
-                    <h2>FLORENZA</h2>
-                    <span>BIJOUTERIAS</span>
-                </div>
-            </a>
-
-            <div class="search-box" id="searchBox">
-                <button type="button" class="search-trigger-btn" id="btnAbrirBusca" onclick="abrirBuscaTopo()" aria-label="Abrir pesquisa">
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    <span class="search-label-desktop">Buscar peças...</span>
-                </button>
-                <div class="search-input-wrap" id="searchInputWrap">
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    <input type="text" id="inputBusca" oninput="filtrarProdutos()" placeholder="Digite o nome do acessório..." autocomplete="off">
-                    <button type="button" class="search-close-btn" onclick="fecharBuscaTopo()" aria-label="Fechar busca">&times;</button>
-                </div>
-            </div>
-
-            <div class="nav-actions">
-                <button type="button" onclick="abrirCarrinho()" class="btn btn-secondary">
-                    🛍️ <span class="hide-mobile">Sacola</span> <span id="contadorCarrinho" class="counter-badge">0</span>
-                </button>
-                <div id="statusLogin">
-                    <button type="button" onclick="abrirModalAdmin()" class="btn btn-outline">Admin</button>
-                </div>
-            </div>
-        </div>
+        <button type="button" class="contact-btn" onclick="abrirCarrinho()">Finalizar Pedido</button>
     </header>
 
-    <!-- Palco 1: Apresentação com o Modelo em Destaque + Trilho -->
-    <main id="stageTrilho" class="stage-rail">
-        <!-- Apresentação Principal do Modelo Ativo -->
-        <section id="showcaseModeloAtivo" class="model-hero-stage">
-            <div class="model-hero-media">
-                <img id="heroModeloImg" src="https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800" alt="Modelo Florenza">
-                <div id="heroModelo3DWrap" class="hero-3d-wrap" style="display: none;"></div>
-                <div id="heroModeloToggle3D" class="hero-3d-floating-controls" style="display: none;">
-                    <button type="button" id="btnHeroFoto" class="btn btn-secondary btn-sm" onclick="alternarHeroModelo('foto')">📷 Foto</button>
-                    <button type="button" id="btnHero3D" class="btn btn-dark btn-sm" onclick="alternarHeroModelo('3d')">🧊 Modelo 3D</button>
+    <!-- Palco Principal 3D Interativo -->
+    <main class="hero">
+        <div class="hero-content">
+            <!-- Camada Distante (Parallax Suave) -->
+            <div class="leaves-container">
+                <model-viewer class="leaf l1" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/IridescenceAbalone/glTF-Binary/IridescenceAbalone.glb" environment-image="neutral" exposure="1.1" interaction-prompt="none" camera-orbit="45deg 75deg 115%"></model-viewer>
+                <model-viewer class="leaf l2" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/IridescenceAbalone/glTF-Binary/IridescenceAbalone.glb" environment-image="neutral" exposure="1.1" interaction-prompt="none" camera-orbit="-30deg 60deg 115%"></model-viewer>
+                <model-viewer class="leaf l3" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/IridescenceAbalone/glTF-Binary/IridescenceAbalone.glb" environment-image="neutral" exposure="1.1" interaction-prompt="none" camera-orbit="120deg 85deg 115%"></model-viewer>
+                <model-viewer class="leaf l4" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/IridescenceAbalone/glTF-Binary/IridescenceAbalone.glb" environment-image="neutral" exposure="1.1" interaction-prompt="none" camera-orbit="10deg 45deg 115%"></model-viewer>
+            </div>
+
+            <!-- Coluna Esquerda -->
+            <div class="hero-left">
+                <h1 class="main-title" id="heroTituloCursivo">
+                    <span class="outline" id="heroLinha1">Pure</span><br>
+                    <span id="heroLinha2">Brilho</span>
+                </h1>
+
+                <p class="description" id="heroDescricao">
+                    Detalhes que fazem você ainda mais única. <br>
+                    Escolha sua peça, personalize caixinha ou sacola <br>
+                    e receba com um mimo especial Florenza.
+                </p>
+
+                <div class="hero-price-pill">
+                    <strong id="heroPrecoAtivo">R$ 0,00</strong>
+                    <span id="heroPrecoAntigoAtivo" class="old-price-tag" style="display: none;"></span>
+                    <button type="button" id="btnCurtirAtivo" class="like-pill-btn">♥ <span id="focoLikes">0</span></button>
+                </div>
+
+                <div class="cta-group">
+                    <button type="button" class="primary-btn" onclick="abrirModalPersonalizacao()">
+                        Personalizar
+                        <span class="plus-icon">+</span>
+                    </button>
+                </div>
+
+                <div class="award-badge">
+                    <div class="award-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 15L15 18L19 14" stroke="#fbcfe8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M7 10L12 15L17 10" stroke="#fbcfe8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <div class="award-text">
+                        <span class="award-title">FLORENZA ATELIER</span>
+                        <span class="award-subtitle">COLEÇÃO EXCLUSIVA 2026</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="model-hero-info">
-                <span class="hero-tag">♔ APRESENTAÇÃO FLORENZA · BELEZA · ESTILO · VOCÊ</span>
-                <h1 id="heroModeloTitulo">Detalhes que fazem você ainda mais <em>única</em>.</h1>
-                <p id="heroModeloSubtitulo" class="hero-model-desc">Escolha sua peça no trilho abaixo, personalize caixinha ou sacola na cor da sua preferência e finalize direto no WhatsApp.</p>
-
-                <div class="hero-price-row">
-                    <span id="heroModeloPreco" class="focus-price" style="font-size: 1.25rem;">R$ 0,00</span>
-                    <span id="heroModeloPrecoAntigo" class="card-old-price"></span>
-                </div>
-
-                <div id="focoTamanhosRapidos" class="focus-sizes" style="display: none;"></div>
-
-                <div class="focus-actions" style="margin-top: 14px;">
-                    <button type="button" id="btnCurtirAtivo" class="btn btn-outline btn-sm">♥ <span id="focoLikes">0</span></button>
-                    <button type="button" id="btnAbrirCompraAtivo" class="btn btn-dark">Personalizar & Comprar</button>
-                </div>
-            </div>
-        </section>
-
-        <!-- Trilho de Peças da Coleção -->
-        <div class="rail-viewport">
-            <button type="button" class="rail-arrow rail-prev" onclick="moverTrilho(-1)" aria-label="Anterior">‹</button>
-            <div id="trilhoProdutos" class="rail-track"></div>
-            <button type="button" class="rail-arrow rail-next" onclick="moverTrilho(1)" aria-label="Próxima">›</button>
-        </div>
-    </main>
-
-    <!-- Palco 2: Tela de Personalização & Compra -->
-    <section id="stageCompra" class="stage-purchase" style="display: none;">
-        <div class="purchase-container">
-            <button type="button" class="btn btn-outline back-rail-btn" onclick="voltarAoTrilho()">← Voltar à Apresentação</button>
-
-            <div class="purchase-split">
-                <div class="purchase-media">
-                    <div class="media-stage-box">
-                        <img id="compraImagem" src="" alt="">
-                        <div id="containerGetLayers" class="getlayers-embed-wrap" style="display: none;"></div>
-                    </div>
-                    <div id="controlesModelo3D" class="media-toggle-bar" style="display: none;">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="alternarVisualizacaoMedia('foto')">📷 Foto</button>
-                        <button type="button" class="btn btn-dark btn-sm" onclick="alternarVisualizacaoMedia('3d')">🧊 Modelo 3D</button>
-                    </div>
-                </div>
-
-                <div class="purchase-details">
-                    <span class="section-tag">CAIXINHAS · SACOLAS · CORES</span>
-                    <h2 id="compraTitulo">Acessório</h2>
-                    <div class="price-container">
-                        <span id="compraPreco" class="card-price">R$ 0,00</span>
-                        <span id="compraPrecoAntigo" class="card-old-price"></span>
-                    </div>
-
-                    <div class="customization-box">
-                        <div class="option-group">
-                            <label>Tipo de Embalagem</label>
-                            <div class="size-options-row">
-                                <div>
-                                    <input type="radio" id="embCaixa" name="tipoEmbalagem" value="Caixinha Personalizada" checked class="size-option-input">
-                                    <label for="embCaixa" class="size-option-label">🎁 Caixinha Personalizada</label>
-                                </div>
-                                <div>
-                                    <input type="radio" id="embSacola" name="tipoEmbalagem" value="Sacola de Presente" class="size-option-input">
-                                    <label for="embSacola" class="size-option-label">🛍️ Sacola Florenza</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="option-group">
-                            <label>Cor da Caixinha / Sacola</label>
-                            <div class="color-options-row">
-                                <label class="color-option">
-                                    <input type="radio" name="corEmbalagem" value="Rosa" checked>
-                                    <span class="color-circle" style="background-color: #e8b4b8;"></span>
-                                    Rosa
-                                </label>
-                                <label class="color-option">
-                                    <input type="radio" name="corEmbalagem" value="Preto">
-                                    <span class="color-circle" style="background-color: #181413;"></span>
-                                    Preto
-                                </label>
-                                <label class="color-option">
-                                    <input type="radio" name="corEmbalagem" value="Bege">
-                                    <span class="color-circle" style="background-color: #dfd3c3;"></span>
-                                    Bege
-                                </label>
-                                <label class="color-option">
-                                    <input type="radio" name="corEmbalagem" value="Branco">
-                                    <span class="color-circle" style="background-color: #ffffff;"></span>
-                                    Branco
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- Tamanho Condicional (Só aparece se ativo no Admin) -->
-                        <div class="option-group" id="blocoTamanhoAnelPulseira" style="display: none;">
-                            <label>Tamanho (Anel / Pulseira)</label>
-                            <div class="size-options-row">
-                                <div>
-                                    <input type="radio" id="tamP" name="tamanhoItem" value="P (14/15)" checked class="size-option-input">
-                                    <label for="tamP" class="size-option-label">P (14/15)</label>
-                                </div>
-                                <div>
-                                    <input type="radio" id="tamM" name="tamanhoItem" value="M (16/17)" class="size-option-input">
-                                    <label for="tamM" class="size-option-label">M (16/17)</label>
-                                </div>
-                                <div>
-                                    <input type="radio" id="tamG" name="tamanhoItem" value="G (18/20)" class="size-option-input">
-                                    <label for="tamG" class="size-option-label">G (18/20)</label>
-                                </div>
-                                <div>
-                                    <input type="radio" id="tamAjust" name="tamanhoItem" value="Ajustável" class="size-option-input">
-                                    <label for="tamAjust" class="size-option-label">Ajustável</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button type="button" onclick="adicionarProdutoAtualAoCarrinho()" class="btn btn-dark btn-block" style="padding: 13px;">
-                            Adicionar à Sacola
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Faixa Contínua Inferior -->
-    <div class="bottom-marquee" aria-hidden="true">
-        <div class="marquee-track">
-            <span>FLORENZA BIJOUTERIAS · CAIXINHAS E SACOLAS EM ROSA, PRETO, BEGE E BRANCO · BRINDE ESPECIAL EM CADA PEDIDO · SEU BRILHO, NOSSA INSPIRAÇÃO ·</span>
-            <span>FLORENZA BIJOUTERIAS · CAIXINHAS E SACOLAS EM ROSA, PRETO, BEGE E BRANCO · BRINDE ESPECIAL EM CADA PEDIDO · SEU BRILHO, NOSSA INSPIRAÇÃO ·</span>
-        </div>
-    </div>
-
-    <!-- Modal Painel Administrador -->
-    <div id="modalAdmin" class="modal-overlay" style="display: none;">
-        <div class="modal-card">
-            <button type="button" class="btn-close" onclick="fecharModalAdmin()" aria-label="Fechar">&times;</button>
-
-            <div id="formLoginView">
-                <h2>Área Administrativa</h2>
-                <p class="subtitle">Gestão de catálogo Florenza Bijouterias</p>
-
-                <div class="input-group">
-                    <label for="emailLogin">E-mail</label>
-                    <input type="email" id="emailLogin" placeholder="admin@florenza.com">
-                </div>
-
-                <div class="input-group">
-                    <label for="senhaLogin">Senha</label>
-                    <input type="password" id="senhaLogin" placeholder="••••••••">
-                </div>
-
-                <button type="button" onclick="fazerLogin()" class="btn btn-dark btn-block">Acessar Painel</button>
+            <!-- Elementos Flutuantes de Fundo -->
+            <div class="berries-container-bg">
+                <model-viewer class="berry b7" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/SheenChair/glTF-Binary/SheenChair.glb" environment-image="neutral" exposure="1.0" interaction-prompt="none" camera-orbit="-20deg 110deg 120%"></model-viewer>
+                <model-viewer class="berry b8" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/SheenChair/glTF-Binary/SheenChair.glb" environment-image="neutral" exposure="1.0" interaction-prompt="none" camera-orbit="160deg 45deg 120%"></model-viewer>
+                <model-viewer class="berry b9" src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/SheenChair/glTF-Binary/SheenChair.glb" environment-image="neutral" exposure="1.0" interaction-prompt="none" camera-orbit="45deg 20deg 120%"></model-viewer>
             </div>
 
-            <div id="formCadastroView" style="display: none;">
-                <h2>Painel Florenza Admin</h2>
-                <p class="subtitle">Peças no catálogo: <strong id="totalProdutosAdmin">0</strong></p>
-
-                <div class="sales-dashboard-card">
-                    <div class="sales-metric">
-                        <span>Pedidos Enviados</span>
-                        <strong id="adminTotalVendas">0</strong>
-                    </div>
-                    <div class="sales-metric">
-                        <span>Receita Estimada</span>
-                        <strong id="adminReceitaTotal">R$ 0,00</strong>
-                    </div>
-                </div>
-
-                <div class="input-group" style="margin-top: 12px;">
-                    <label for="nomeProduto">Nome da Peça *</label>
-                    <input type="text" id="nomeProduto" placeholder="Ex: Colar Coração Dourado">
-                </div>
-
-                <div class="form-row">
-                    <div class="input-group">
-                        <label for="precoProduto">Preço Atual (R$) *</label>
-                        <input type="text" id="precoProduto" placeholder="Ex: 29.90">
-                    </div>
-                    <div class="input-group">
-                        <label for="precoAntigoProduto">Preço Antigo (R$)</label>
-                        <input type="text" id="precoAntigoProduto" placeholder="Ex: 45.00">
-                    </div>
-                </div>
-
-                <div class="input-group">
-                    <label for="imagemProduto">URL da Foto</label>
-                    <input type="url" id="imagemProduto" placeholder="https://exemplo.com/foto.jpg">
-                </div>
-
-                <div class="input-group">
-                    <label for="modelo3dProduto">URL Embed Get Layers (Opcional - Modelo 3D)</label>
-                    <input type="url" id="modelo3dProduto" placeholder="https://...">
-                </div>
-
-                <div class="checkbox-group admin-toggle-box">
-                    <input type="checkbox" id="adminAtivoAnelPulseira">
-                    <label for="adminAtivoAnelPulseira">
-                        <strong>Ativar seletor de Tamanho (Anel / Pulseira)</strong>
-                        <small style="display:block; color: var(--text-muted);">Mostra tamanhos P, M, G e Ajustável nesta peça.</small>
-                    </label>
-                </div>
-
-                <button type="button" onclick="adicionarProduto()" class="btn btn-dark btn-block" style="margin-top: 14px;">Publicar no Trilho</button>
-                <button type="button" onclick="fazerLogout()" class="btn btn-danger-soft btn-block" style="margin-top: 8px;">Sair da Conta Admin</button>
+            <!-- Produto Central 3D -->
+            <div class="hero-center">
+                <model-viewer id="product-model"
+                    src="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/IridescentDishWithOlives/glTF-Binary/IridescentDishWithOlives.glb"
+                    alt="Modelo 3D Florenza Bijouterias"
+                    camera-controls
+                    disable-zoom
+                    shadow-intensity="0"
+                    environment-image="neutral"
+                    exposure="1.4"
+                    interaction-prompt="none"
+                    camera-orbit="0deg 75deg 240%"
+                    field-of-view="30deg"
+                    class="main-product-3d">
+                </model-viewer>
             </div>
-        </div>
-    </div>
 
-    <!-- Gaveta Lateral da Sacola -->
-    <div id="modalCarrinho" class="modal-overlay" style="display: none;">
-        <div class="modal-card drawer-card">
-            <div class="drawer-header">
-                <h2>Sua Sacola</h2>
-                <button type="button" class="btn-close" onclick="fecharCarrinho()" aria-label="Fechar">&times;</button>
-            </div>
-            <div id="listaItensCarrinho" class="drawer-body"></div>
-            <div id="sugestoesSacola" class="drawer-suggestions"></div>
-            <div class="drawer-footer">
-                <div class="drawer-total">
-                    <span>Total:</span>
-                    <strong id="carrinhoTotalPreco">R$ 0,00</strong>
-                </div>
-                <button type="button" onclick="finalizarCompra()" class="btn btn-dark btn-block">Finalizar no WhatsApp</button>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <script src="./script.js" defer></script>
-</body>
-</html>
+            <!-- Elementos Flutuantes de Primeiro Plano (Repulsão pelo Cursor) -->
+            <div class="berries-container">
+                <model-viewer class="berry b1" src="
