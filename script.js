@@ -152,10 +152,14 @@ function iniciarMovimentoFlorenza() {
 function animarTrocaDeProduto() {
     const stage = document.getElementById('showcaseModeloAtivo');
     if (!stage || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    stage.classList.remove('product-switching');
+    stage.classList.remove('product-switching', 'product-revealing');
     void stage.offsetWidth;
     stage.classList.add('product-switching');
-    window.setTimeout(() => stage.classList.remove('product-switching'), 520);
+    window.setTimeout(() => {
+        stage.classList.remove('product-switching');
+        stage.classList.add('product-revealing');
+        window.setTimeout(() => stage.classList.remove('product-revealing'), 680);
+    }, 220);
 }
 
 // --- Inicialização com Logo de Carregamento ---
@@ -629,8 +633,19 @@ function abrirTelaCompra(id) {
         }
     }
 
-    setModalDisplay('stageTrilho', 'none');
-    setModalDisplay('stageCompra', 'block');
+    const stageRail = document.getElementById('stageTrilho');
+    const stagePurchase = document.getElementById('stageCompra');
+    if (stageRail) stageRail.classList.add('is-leaving');
+    window.setTimeout(() => {
+        setModalDisplay('stageTrilho', 'none');
+        if (stageRail) stageRail.classList.remove('is-leaving');
+        setModalDisplay('stageCompra', 'block');
+        if (stagePurchase) {
+            stagePurchase.classList.remove('is-entering');
+            void stagePurchase.offsetWidth;
+            stagePurchase.classList.add('is-entering');
+        }
+    }, 190);
 }
 
 function alternarVisualizacaoMedia(modo) {
@@ -657,9 +672,21 @@ function voltarAoTrilho() {
     produtoSelecionadoCompra = null;
     const container3D = document.getElementById('containerGetLayers');
     if (container3D) container3D.innerHTML = '';
-    setModalDisplay('stageCompra', 'none');
-    setModalDisplay('stageTrilho', 'flex');
-    centralizarItemAtivo();
+    const stagePurchase = document.getElementById('stageCompra');
+    if (stagePurchase) stagePurchase.classList.add('is-leaving');
+    window.setTimeout(() => {
+        setModalDisplay('stageCompra', 'none');
+        if (stagePurchase) stagePurchase.classList.remove('is-leaving', 'is-entering');
+        setModalDisplay('stageTrilho', 'flex');
+        const stageRail = document.getElementById('stageTrilho');
+        if (stageRail) {
+            stageRail.classList.remove('is-leaving');
+            void stageRail.offsetWidth;
+            stageRail.style.animation = 'florenzaHeroEnter .65s cubic-bezier(.16,1,.3,1) both';
+            window.setTimeout(() => { if (stageRail) stageRail.style.animation = ''; }, 700);
+        }
+        centralizarItemAtivo();
+    }, 180);
 }
 
 function adicionarProdutoAtualAoCarrinho() {
@@ -914,3 +941,23 @@ if (document.readyState === 'loading') {
 } else {
     init();
 }
+
+// Fundo reativo: acompanha o cursor com suavidade, sem interferir no trilho ou no toque.
+(function iniciarFundoReativoFlorenza() {
+    const reduzir = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduzir) return;
+    let x = 50, y = 45, tx = 50, ty = 45, raf = 0;
+    window.addEventListener('pointermove', (event) => {
+        tx = (event.clientX / Math.max(1, window.innerWidth)) * 100;
+        ty = (event.clientY / Math.max(1, window.innerHeight)) * 100;
+        if (!raf) raf = requestAnimationFrame(animar);
+    }, { passive: true });
+    function animar() {
+        x += (tx - x) * .075;
+        y += (ty - y) * .075;
+        document.body.style.setProperty('--pointer-x', `${x.toFixed(2)}%`);
+        document.body.style.setProperty('--pointer-y', `${y.toFixed(2)}%`);
+        if (Math.abs(tx - x) > .08 || Math.abs(ty - y) > .08) raf = requestAnimationFrame(animar);
+        else raf = 0;
+    }
+})();
