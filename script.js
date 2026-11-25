@@ -1,13 +1,14 @@
 const SUPABASE_URL = 'https://finmivasfcnnjntfaeei.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpbm1pdmFzZmNubmpudGZhZWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwNzY2MTIsImV4cCI6MjEwNzY1MjYxMn0.0IURfOPO9ExLv4D2VM03ENyPIBzG2iy9xEyE1gtlFd0';
 const WHATSAPP_LOJA = '5511999999999'; // Substitua pelo WhatsApp real com DDI + DDD + número
+const ADMIN_EMAIL = 'kazin1324@gmail.com';
 const CACHE_PRODUTOS_KEY = 'florenza_vitrine_cache_v3';
 
 let _supabase = null;
 try {
     if (window.supabase && typeof window.supabase.createClient === 'function') {
         _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-            auth: { persistSession: false }
+            auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
         });
     }
 } catch (e) {
@@ -255,18 +256,25 @@ async function salvarIdentificacaoCliente() {
 
 // --- Admin ---
 async function verificarSessao() {
-    if (!_supabase) {
-        renderHeader(null);
-        return;
-    }
+    if (!_supabase) { usuarioAdmin = false; renderHeader(null); return; }
     try {
-        const { data } = await _supabase.auth.getSession();
-        const session = data ? data.session : null;
-        usuarioAdmin = !!session;
-        renderHeader(session);
-    } catch (e) {
-        renderHeader(null);
-    }
+        const { data, error } = await _supabase.auth.getSession();
+        if (error) throw error;
+        const session = data?.session || null;
+        const email = String(session?.user?.email || '').trim().toLowerCase();
+        if (session && email !== ADMIN_EMAIL.toLowerCase()) { await _supabase.auth.signOut(); usuarioAdmin = false; renderHeader(null); return; }
+        usuarioAdmin = !!session; renderHeader(session);
+    } catch (e) { console.warn('[Florenza] Falha ao validar sessão admin.', e); usuarioAdmin = false; renderHeader(null); }
+}
+
+async function obterHeadersAdmin(extra = {}) {
+    if (!_supabase) throw new Error('Autenticação indisponível. Atualize a página e tente novamente.');
+    const { data, error } = await _supabase.auth.getSession();
+    if (error) throw error;
+    const session = data?.session;
+    const email = String(session?.user?.email || '').trim().toLowerCase();
+    if (!session?.access_token || email !== ADMIN_EMAIL.toLowerCase()) { usuarioAdmin = false; renderHeader(null); throw new Error('Acesso administrativo não autorizado. Entre com a conta administrativa correta.'); }
+    return { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, ...extra };
 }
 
 function renderHeader(session) {
@@ -307,14 +315,10 @@ async function fazerLogin() {
         return;
     }
 
+    if (email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) { alert('Esta conta não tem autorização para acessar o painel administrativo.'); return; }
     const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-        alert('Erro ao entrar: ' + error.message);
-    } else {
-        usuarioAdmin = true;
-        renderHeader(data.session);
-        fecharModalAdmin();
-    }
+    if (error) alert('Erro ao entrar: ' + error.message);
+    else { usuarioAdmin = true; renderHeader(data.session); fecharModalAdmin(); }
 }
 
 async function fazerLogout() {
@@ -581,15 +585,7 @@ async function darLike(id) {
         focoLikesEl.textContent = novosLikes;
     }
 
-    fetch(`${SUPABASE_URL}/rest/v1/tarefas?id=eq.${id}`, {
-        method: 'PATCH',
-        headers: {
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ likes: novosLikes })
-    }).catch(() => {});
+    // Likes ficam locais até existir um fluxo público protegido contra abuso.
 }
 
 // --- Tela de Personalização & Compra ---
@@ -663,11 +659,23 @@ function alternarVisualizacaoMedia(modo) {
     if (!imgEl || !container3D || !produtoSelecionadoCompra) return;
 
     if (modo === '3d' && produtoSelecionadoCompra.modelo_3d_url) {
+        let modeloUrl;
+        try { modeloUrl = new URL(produtoSelecionadoCompra.modelo_3d_url); } catch (_) {
+            alert('O endereço do modelo 3D é inválido.');
+            return;
+        }
+        if (modeloUrl.protocol !== 'https:') {
+            alert('O modelo 3D precisa utilizar um endereço HTTPS seguro.');
+            return;
+        }
         imgEl.style.display = 'none';
         container3D.style.display = 'block';
         if (!container3D.querySelector('iframe')) {
             const iframe = document.createElement('iframe');
-            iframe.src = produtoSelecionadoCompra.modelo_3d_url;
+            iframe.src = modeloUrl.href;
+            iframe.title = 'Visualização 3D do produto';
+            iframe.loading = 'lazy';
+            iframe.referrerPolicy = 'strict-origin-when-cross-origin';
             iframe.allow = 'autoplay; fullscreen; xr-spatial-tracking';
             container3D.appendChild(iframe);
         }
@@ -723,16 +731,7 @@ function adicionarProdutoAtualAoCarrinho() {
 
     atualizarContadorSacola();
 
-    p.carrinho_count = (p.carrinho_count || 0) + 1;
-    fetch(`${SUPABASE_URL}/rest/v1/tarefas?id=eq.${p.id}`, {
-        method: 'PATCH',
-        headers: {
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ carrinho_count: p.carrinho_count })
-    }).catch(() => {});
+    // Contadores não são gravados com a chave pública, evitando alterações anônimas no catálogo.
 
     abrirCarrinho();
 }
@@ -779,12 +778,26 @@ function renderizarSugestoesSacola() {
         return;
     }
 
-    box.innerHTML = `<strong>Complete seu pedido:</strong>` + extras.map((p) => `
-        <div class="suggestion-row">
-            <span>${p.texto || 'Peça Florenza'} — <strong>${formatarBRL(parseFloat(p.preco) || 0)}</strong></span>
-            <button type="button" class="btn btn-outline btn-sm" onclick="adicionarSugestaoRapida(${p.id})">+ Add</button>
-        </div>
-    `).join('');
+    box.replaceChildren();
+    const heading = document.createElement('strong');
+    heading.textContent = 'Complete seu pedido:';
+    box.appendChild(heading);
+    extras.forEach((p) => {
+        const row = document.createElement('div');
+        row.className = 'suggestion-row';
+        const label = document.createElement('span');
+        label.append(document.createTextNode(`${p.texto || 'Peça Florenza'} — `));
+        const price = document.createElement('strong');
+        price.textContent = formatarBRL(parseFloat(p.preco) || 0);
+        label.appendChild(price);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-outline btn-sm';
+        button.textContent = '+ Add';
+        button.addEventListener('click', () => adicionarSugestaoRapida(p.id));
+        row.append(label, button);
+        box.appendChild(row);
+    });
 }
 
 function renderizarCarrinho() {
@@ -807,16 +820,30 @@ function renderizarCarrinho() {
 
         const row = document.createElement('div');
         row.className = 'cart-item-row';
-        row.innerHTML = `
-            <div>
-                <strong>${item.nome}</strong> <span>x${item.quantidade}</span>
-                <span class="cart-item-meta">${item.detalhes}</span>
-            </div>
-            <div style="text-align: right; white-space: nowrap;">
-                <strong>${formatarBRL(subtotal)}</strong>
-                <button type="button" class="cart-remove-btn" onclick="removerItemCarrinho(${index})" title="Remover">✕</button>
-            </div>
-        `;
+        const description = document.createElement('div');
+        const name = document.createElement('strong');
+        name.textContent = item.nome;
+        const quantity = document.createElement('span');
+        quantity.textContent = ` x${item.quantidade}`;
+        const details = document.createElement('span');
+        details.className = 'cart-item-meta';
+        details.textContent = item.detalhes;
+        description.append(name, quantity, details);
+
+        const actions = document.createElement('div');
+        actions.style.textAlign = 'right';
+        actions.style.whiteSpace = 'nowrap';
+        const subtotalEl = document.createElement('strong');
+        subtotalEl.textContent = formatarBRL(subtotal);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'cart-remove-btn';
+        remove.title = 'Remover';
+        remove.setAttribute('aria-label', `Remover ${item.nome} da sacola`);
+        remove.textContent = '✕';
+        remove.addEventListener('click', () => removerItemCarrinho(index));
+        actions.append(subtotalEl, remove);
+        row.append(description, actions);
         lista.appendChild(row);
     });
 
@@ -831,16 +858,21 @@ function finalizarCompra() {
     }
 
     const emailCliente = getStorageSafe('florenza_cliente_email') || 'Cliente Vitrine';
-    let mensagem = `Olá, *Florenza Bijouterias*! ✨%0AGostaria de finalizar o pedido:%0A(E-mail: ${emailCliente})%0A%0A`;
+    const linhasMensagem = [
+        'Olá, *Florenza Bijouterias*! ✨',
+        'Gostaria de finalizar o pedido:',
+        `E-mail: ${emailCliente}`,
+        ''
+    ];
     let totalGeral = 0;
 
     carrinho.forEach((item) => {
         const subtotal = item.preco * item.quantidade;
         totalGeral += subtotal;
-        mensagem += `• *${item.nome}* x${item.quantidade}%0A  _${item.detalhes}_ — ${formatarBRL(subtotal)}%0A`;
+        linhasMensagem.push(`• *${item.nome}* x${item.quantidade}`, `  _${item.detalhes}_ — ${formatarBRL(subtotal)}`);
     });
-
-    mensagem += `%0A*Total do Pedido: ${formatarBRL(totalGeral)}*`;
+    linhasMensagem.push('', `*Total do Pedido: ${formatarBRL(totalGeral)}*`);
+    const mensagem = encodeURIComponent(linhasMensagem.join('\n'));
 
     totalVendasConcluidas += 1;
     receitaTotalAcumulada += totalGeral;
@@ -880,14 +912,13 @@ async function adicionarProduto() {
     if (precoAntigo) novoItem.preco_antigo = precoAntigo;
     if (imagem) novoItem.imagem = imagem;
     if (modelo3d) novoItem.modelo_3d_url = modelo3d;
-    if (anelPulseiraAtivo) novoItem.anel_pulseira_ativo = true;
+    novoItem.anel_pulseira_ativo = anelPulseiraAtivo;
 
     const postProduto = async (payload) => {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/tarefas`, {
             method: 'POST',
             headers: {
-                apikey: SUPABASE_KEY,
-                Authorization: `Bearer ${SUPABASE_KEY}`,
+                ...(await obterHeadersAdmin()),
                 'Content-Type': 'application/json',
                 Prefer: 'return=minimal'
             },
@@ -902,23 +933,8 @@ async function adicionarProduto() {
     try {
         await postProduto(novoItem);
     } catch (err) {
-        const msg = String(err.message || err);
-        // Se os campos extras ainda não existem no banco, publica com os campos
-        // essenciais e mantém os recursos opcionais desligados para essa peça.
-        if (msg.includes('anel_pulseira_ativo') || msg.includes('modelo_3d_url') || msg.includes('42703')) {
-            delete novoItem.anel_pulseira_ativo;
-            delete novoItem.modelo_3d_url;
-            try {
-                await postProduto(novoItem);
-                alert('Peça publicada. Os campos opcionais de tamanho e modelo 3D não foram enviados porque ainda não existem no banco.');
-            } catch (err2) {
-                alert('Erro ao publicar: ' + err2.message);
-                return;
-            }
-        } else {
-            alert('Erro ao publicar: ' + err.message);
-            return;
-        }
+        alert('Erro ao publicar: ' + err.message);
+        return;
     }
 
     document.getElementById('nomeProduto').value = '';
@@ -1004,13 +1020,14 @@ async function salvarProdutoAdmin() {
     const precoAntigo = (document.getElementById('precoAntigoProduto')?.value || '').trim().replace(',', '.');
     const imagem = (document.getElementById('imagemProduto')?.value || '').trim();
     if (!nome) return alert('Informe o nome da peça.');
-    const payload = { texto: nome, preco: preco || null, preco_antigo: precoAntigo || null, imagem: imagem || null };
+    const modelo3d = (document.getElementById('modelo3dProduto')?.value || '').trim();
+    const anelPulseiraAtivo = Boolean(document.getElementById('adminAtivoAnelPulseira')?.checked);
+    const payload = { texto: nome, preco: preco || null, preco_antigo: precoAntigo || null, imagem: imagem || null, modelo_3d_url: modelo3d || null, anel_pulseira_ativo: anelPulseiraAtivo };
     const endpoint = `${SUPABASE_URL}/rest/v1/tarefas?id=eq.${encodeURIComponent(id)}`;
     const enviar = async (body) => {
         const res = await fetch(endpoint, {
             method: 'PATCH',
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json', Prefer: 'return=minimal' },
+            headers: await obterHeadersAdmin({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
             body: JSON.stringify(body)
         });
         if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
@@ -1031,7 +1048,7 @@ async function excluirProdutoAdmin(id) {
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/tarefas?id=eq.${encodeURIComponent(id)}`, {
             method: 'DELETE',
-            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, Prefer: 'return=minimal' }
+            headers: await obterHeadersAdmin({ Prefer: 'return=minimal' })
         });
         if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
         cancelarEdicaoProduto();
