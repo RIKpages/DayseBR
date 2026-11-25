@@ -49,7 +49,7 @@ on public.leads for insert to anon, authenticated
 with check (
   email is not null
   and length(email) <= 254
-  and email ~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$'
+  and email ~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$'
 );
 
 create policy "Florenza admin read leads"
