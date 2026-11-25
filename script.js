@@ -98,25 +98,52 @@ function salvarCacheVitrine(produtos) {
     } catch (e) {}
 }
 
-async function buscarProdutosRapido(timeoutMs = 5000) {
+async function buscarProdutosRapido(timeoutMs = 9000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const colunas = 'id,texto,preco,preco_antigo,imagem,likes,carrinho_count,anel_pulseira_ativo,modelo_3d_url';
 
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/tarefas?select=${colunas}&order=id.desc`, {
+        // select=* evita que uma coluna opcional ausente (ex.: carrinho_count,
+        // anel_pulseira_ativo ou modelo_3d_url) derrube a consulta inteira.
+        const endpoint = `${SUPABASE_URL}/rest/v1/tarefas?select=*&order=id.desc`;
+        const res = await fetch(endpoint, {
+            method: 'GET',
             headers: {
                 apikey: SUPABASE_KEY,
-                Authorization: `Bearer ${SUPABASE_KEY}`
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                Accept: 'application/json'
             },
-            signal: controller.signal
+            signal: controller.signal,
+            cache: 'no-store'
         });
-        clearTimeout(timer);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        return await res.json();
+
+        const responseText = await res.text();
+        if (!res.ok) {
+            let detalhe = responseText;
+            try {
+                const body = JSON.parse(responseText);
+                detalhe = body.message || body.details || body.hint || body.code || responseText;
+            } catch (_) {}
+            throw new Error(`Supabase HTTP ${res.status}: ${detalhe}`);
+        }
+
+        let dados;
+        try {
+            dados = responseText ? JSON.parse(responseText) : [];
+        } catch (_) {
+            throw new Error('O Supabase respondeu, mas o conteúdo não é um JSON válido.');
+        }
+        if (!Array.isArray(dados)) {
+            throw new Error('A resposta do catálogo não é uma lista de produtos.');
+        }
+        return dados;
     } catch (err) {
-        clearTimeout(timer);
+        if (err && err.name === 'AbortError') {
+            throw new Error(`Tempo esgotado ao consultar o catálogo após ${timeoutMs} ms.`);
+        }
         throw err;
+    } finally {
+        clearTimeout(timer);
     }
 }
 
@@ -300,10 +327,13 @@ async function carregarProdutos(jaTemCache = false) {
 
         renderTrilho(produtosVisiveis);
     } catch (err) {
+        console.error('[Florenza] Falha ao carregar catálogo do Supabase:', err);
         if (!jaTemCache) {
+            const detalhe = String(err && err.message ? err.message : err);
             trilho.innerHTML = `
-                <div style="text-align:center; margin: 0 auto; padding: 12px;">
-                    <p style="color: var(--accent-red); margin-bottom: 8px;">Não foi possível carregar as peças agora.</p>
+                <div style="text-align:center; margin: 0 auto; padding: 12px; max-width: 520px;">
+                    <p style="color: var(--accent-red); margin-bottom: 8px;">Não foi possível carregar as peças.</p>
+                    <small style="display:block; color:var(--text-muted); margin-bottom:10px; overflow-wrap:anywhere;">${detalhe.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</small>
                     <button type="button" class="btn btn-dark btn-sm" onclick="carregarProdutos(false)">Tentar novamente</button>
                 </div>
             `;
