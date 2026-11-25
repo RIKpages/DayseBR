@@ -1,6 +1,6 @@
 const SUPABASE_URL = 'https://finmivasfcnnjntfaeei.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpbm1pdmFzZmNubmpudGZhZWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwNzY2MTIsImV4cCI6MjEwNzY1MjYxMn0.0IURfOPO9ExLv4D2VM03ENyPIBzG2iy9xEyE1gtlFd0';
-const WHATSAPP_LOJA = '5511999999999'; // Substitua pelo WhatsApp real com DDI + DDD + número
+const WHATSAPP_LOJA = '5531991096423'; // Número atual da loja; pode ser alterado pelo painel administrativo.
 const ADMIN_EMAIL = 'kazin1324@gmail.com';
 const CACHE_PRODUTOS_KEY = 'florenza_vitrine_cache_v3';
 
