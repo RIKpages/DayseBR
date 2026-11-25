@@ -659,11 +659,23 @@ function alternarVisualizacaoMedia(modo) {
     if (!imgEl || !container3D || !produtoSelecionadoCompra) return;
 
     if (modo === '3d' && produtoSelecionadoCompra.modelo_3d_url) {
+        let modeloUrl;
+        try { modeloUrl = new URL(produtoSelecionadoCompra.modelo_3d_url); } catch (_) {
+            alert('O endereço do modelo 3D é inválido.');
+            return;
+        }
+        if (modeloUrl.protocol !== 'https:') {
+            alert('O modelo 3D precisa utilizar um endereço HTTPS seguro.');
+            return;
+        }
         imgEl.style.display = 'none';
         container3D.style.display = 'block';
         if (!container3D.querySelector('iframe')) {
             const iframe = document.createElement('iframe');
-            iframe.src = produtoSelecionadoCompra.modelo_3d_url;
+            iframe.src = modeloUrl.href;
+            iframe.title = 'Visualização 3D do produto';
+            iframe.loading = 'lazy';
+            iframe.referrerPolicy = 'strict-origin-when-cross-origin';
             iframe.allow = 'autoplay; fullscreen; xr-spatial-tracking';
             container3D.appendChild(iframe);
         }
@@ -766,12 +778,26 @@ function renderizarSugestoesSacola() {
         return;
     }
 
-    box.innerHTML = `<strong>Complete seu pedido:</strong>` + extras.map((p) => `
-        <div class="suggestion-row">
-            <span>${p.texto || 'Peça Florenza'} — <strong>${formatarBRL(parseFloat(p.preco) || 0)}</strong></span>
-            <button type="button" class="btn btn-outline btn-sm" onclick="adicionarSugestaoRapida(${p.id})">+ Add</button>
-        </div>
-    `).join('');
+    box.replaceChildren();
+    const heading = document.createElement('strong');
+    heading.textContent = 'Complete seu pedido:';
+    box.appendChild(heading);
+    extras.forEach((p) => {
+        const row = document.createElement('div');
+        row.className = 'suggestion-row';
+        const label = document.createElement('span');
+        label.append(document.createTextNode(`${p.texto || 'Peça Florenza'} — `));
+        const price = document.createElement('strong');
+        price.textContent = formatarBRL(parseFloat(p.preco) || 0);
+        label.appendChild(price);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-outline btn-sm';
+        button.textContent = '+ Add';
+        button.addEventListener('click', () => adicionarSugestaoRapida(p.id));
+        row.append(label, button);
+        box.appendChild(row);
+    });
 }
 
 function renderizarCarrinho() {
@@ -794,16 +820,30 @@ function renderizarCarrinho() {
 
         const row = document.createElement('div');
         row.className = 'cart-item-row';
-        row.innerHTML = `
-            <div>
-                <strong>${item.nome}</strong> <span>x${item.quantidade}</span>
-                <span class="cart-item-meta">${item.detalhes}</span>
-            </div>
-            <div style="text-align: right; white-space: nowrap;">
-                <strong>${formatarBRL(subtotal)}</strong>
-                <button type="button" class="cart-remove-btn" onclick="removerItemCarrinho(${index})" title="Remover">✕</button>
-            </div>
-        `;
+        const description = document.createElement('div');
+        const name = document.createElement('strong');
+        name.textContent = item.nome;
+        const quantity = document.createElement('span');
+        quantity.textContent = ` x${item.quantidade}`;
+        const details = document.createElement('span');
+        details.className = 'cart-item-meta';
+        details.textContent = item.detalhes;
+        description.append(name, quantity, details);
+
+        const actions = document.createElement('div');
+        actions.style.textAlign = 'right';
+        actions.style.whiteSpace = 'nowrap';
+        const subtotalEl = document.createElement('strong');
+        subtotalEl.textContent = formatarBRL(subtotal);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'cart-remove-btn';
+        remove.title = 'Remover';
+        remove.setAttribute('aria-label', `Remover ${item.nome} da sacola`);
+        remove.textContent = '✕';
+        remove.addEventListener('click', () => removerItemCarrinho(index));
+        actions.append(subtotalEl, remove);
+        row.append(description, actions);
         lista.appendChild(row);
     });
 
@@ -818,16 +858,21 @@ function finalizarCompra() {
     }
 
     const emailCliente = getStorageSafe('florenza_cliente_email') || 'Cliente Vitrine';
-    let mensagem = `Olá, *Florenza Bijouterias*! ✨%0AGostaria de finalizar o pedido:%0A(E-mail: ${emailCliente})%0A%0A`;
+    const linhasMensagem = [
+        'Olá, *Florenza Bijouterias*! ✨',
+        'Gostaria de finalizar o pedido:',
+        `E-mail: ${emailCliente}`,
+        ''
+    ];
     let totalGeral = 0;
 
     carrinho.forEach((item) => {
         const subtotal = item.preco * item.quantidade;
         totalGeral += subtotal;
-        mensagem += `• *${item.nome}* x${item.quantidade}%0A  _${item.detalhes}_ — ${formatarBRL(subtotal)}%0A`;
+        linhasMensagem.push(`• *${item.nome}* x${item.quantidade}`, `  _${item.detalhes}_ — ${formatarBRL(subtotal)}`);
     });
-
-    mensagem += `%0A*Total do Pedido: ${formatarBRL(totalGeral)}*`;
+    linhasMensagem.push('', `*Total do Pedido: ${formatarBRL(totalGeral)}*`);
+    const mensagem = encodeURIComponent(linhasMensagem.join('\n'));
 
     totalVendasConcluidas += 1;
     receitaTotalAcumulada += totalGeral;
@@ -867,7 +912,7 @@ async function adicionarProduto() {
     if (precoAntigo) novoItem.preco_antigo = precoAntigo;
     if (imagem) novoItem.imagem = imagem;
     if (modelo3d) novoItem.modelo_3d_url = modelo3d;
-    if (anelPulseiraAtivo) novoItem.anel_pulseira_ativo = true;
+    novoItem.anel_pulseira_ativo = anelPulseiraAtivo;
 
     const postProduto = async (payload) => {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/tarefas`, {
@@ -888,23 +933,8 @@ async function adicionarProduto() {
     try {
         await postProduto(novoItem);
     } catch (err) {
-        const msg = String(err.message || err);
-        // Se os campos extras ainda não existem no banco, publica com os campos
-        // essenciais e mantém os recursos opcionais desligados para essa peça.
-        if (msg.includes('anel_pulseira_ativo') || msg.includes('modelo_3d_url') || msg.includes('42703')) {
-            delete novoItem.anel_pulseira_ativo;
-            delete novoItem.modelo_3d_url;
-            try {
-                await postProduto(novoItem);
-                alert('Peça publicada. Os campos opcionais de tamanho e modelo 3D não foram enviados porque ainda não existem no banco.');
-            } catch (err2) {
-                alert('Erro ao publicar: ' + err2.message);
-                return;
-            }
-        } else {
-            alert('Erro ao publicar: ' + err.message);
-            return;
-        }
+        alert('Erro ao publicar: ' + err.message);
+        return;
     }
 
     document.getElementById('nomeProduto').value = '';
