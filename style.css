@@ -1325,3 +1325,63 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   .model-hero-media img { animation:none !important; transform:none !important; }
 }
+
+
+/* Galeria de mídias do painel administrativo */
+.admin-media-panel {
+    margin: 22px 0;
+    padding: 18px;
+    border: 1px solid rgba(194, 151, 88, .28);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, .035);
+}
+.admin-media-help, .admin-media-upload small {
+    display: block;
+    color: var(--text-muted);
+    font-size: .86rem;
+    line-height: 1.55;
+    margin: 8px 0 14px;
+}
+.admin-media-upload {
+    display: grid;
+    gap: 9px;
+    padding: 14px;
+    border: 1px dashed rgba(194, 151, 88, .5);
+    border-radius: 12px;
+    margin-top: 12px;
+}
+.admin-media-upload label { font-weight: 700; }
+.admin-media-upload input { max-width: 100%; }
+.admin-media-status { min-height: 1.4em; margin: 10px 0; color: var(--accent-gold, #c29758); font-size: .86rem; overflow-wrap: anywhere; }
+.admin-media-status.is-error { color: #d97777; }
+.admin-media-list { display: grid; gap: 10px; }
+.admin-media-row {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    padding: 10px;
+    border: 1px solid rgba(194, 151, 88, .18);
+    border-radius: 12px;
+}
+.admin-media-preview {
+    width: 64px; height: 64px; display: grid; place-items: center;
+    overflow: hidden; border-radius: 9px; background: rgba(194, 151, 88, .1);
+    color: var(--accent-gold, #c29758); font-size: 1.7rem;
+}
+.admin-media-preview img { width: 100%; height: 100%; object-fit: cover; }
+.admin-media-details { min-width: 0; display: grid; gap: 4px; }
+.admin-media-details strong { font-size: .78rem; letter-spacing: .04em; }
+.admin-media-details a, .admin-media-details small { color: var(--text-muted); font-size: .75rem; overflow-wrap: anywhere; }
+.admin-media-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.admin-media-order { display: flex; gap: 4px; margin-left: auto; }
+.admin-media-order button {
+    width: 30px; height: 30px; border: 1px solid rgba(194,151,88,.35);
+    border-radius: 7px; background: transparent; color: inherit; cursor: pointer;
+}
+.admin-media-order button:disabled { opacity: .35; cursor: not-allowed; }
+.admin-media-actions button:disabled { opacity: .5; cursor: default; }
+@media (min-width: 640px) {
+    .admin-media-row { grid-template-columns: 64px minmax(0, 1fr) auto; }
+    .admin-media-actions { grid-column: auto; justify-content: flex-end; }
+}
