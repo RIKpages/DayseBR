@@ -1324,6 +1324,9 @@ async function enviarMidiasProduto() {
     }
 }
 
+// Expõe explicitamente a ação da galeria para o onclick do HTML.
+window.enviarMidiasProduto = enviarMidiasProduto;
+
 async function atualizarRegistroMidia(id, payload) {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/produto_midias?id=eq.${encodeURIComponent(id)}`, {
         method: 'PATCH',
