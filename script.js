@@ -590,6 +590,94 @@ async function darLike(id) {
 }
 
 // --- Tela de Personalização & Compra ---
+async function carregarGaleriaPublica(produto) {
+    const thumbs = document.getElementById('compraGaleriaMiniaturas');
+    const stage = document.getElementById('compraMediaStage');
+    if (!thumbs || !produto) return;
+    thumbs.replaceChildren();
+    try {
+        const url = `${SUPABASE_URL}/rest/v1/produto_midias?produto_id=eq.${encodeURIComponent(produto.id)}&ativo=eq.true&select=id,tipo,url,thumbnail_url,capa,ordem&order=capa.desc,ordem.asc`;
+        const res = await fetch(url, { headers: { apikey: SUPABASE_KEY } });
+        if (!res.ok) return;
+        const midias = await res.json();
+        midias.forEach((midia) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'purchase-gallery-thumb';
+            button.setAttribute('aria-label', midia.tipo === 'imagem' ? 'Ver foto do produto' : midia.tipo === 'video' ? 'Reproduzir vídeo do produto' : 'Abrir modelo 3D');
+            if (midia.tipo === 'imagem') {
+                const img = document.createElement('img');
+                img.src = midia.thumbnail_url || midia.url;
+                img.alt = '';
+                img.loading = 'lazy';
+                button.appendChild(img);
+                button.onclick = () => mostrarMidiaCompra(midia, produto);
+            } else {
+                const icon = document.createElement('span');
+                icon.textContent = midia.tipo === 'video' ? '▶ Vídeo' : '◇ 3D';
+                button.appendChild(icon);
+                button.onclick = () => mostrarMidiaCompra(midia, produto);
+            }
+            thumbs.appendChild(button);
+        });
+        if (midias.length && midias[0].tipo !== 'imagem') {
+            const primeiraImagem = midias.find(m => m.tipo === 'imagem');
+            if (primeiraImagem) mostrarMidiaCompra(primeiraImagem, produto);
+        }
+    } catch (err) {
+        console.warn('Galeria pública indisponível:', err);
+    }
+}
+
+function mostrarMidiaCompra(midia, produto) {
+    const img = document.getElementById('compraImagem');
+    const embed = document.getElementById('containerGetLayers');
+    if (!img || !embed) return;
+    embed.replaceChildren();
+    embed.style.display = 'none';
+    img.style.display = 'none';
+    if (midia.tipo === 'imagem') {
+        img.src = midia.url;
+        img.alt = produto.texto || 'Foto do produto Florenza';
+        img.style.display = 'block';
+        return;
+    }
+    if (midia.tipo === 'video') {
+        const video = document.createElement('video');
+        video.src = midia.url;
+        video.controls = true;
+        video.playsInline = true;
+        video.preload = 'metadata';
+        video.setAttribute('aria-label', 'Vídeo do produto');
+        embed.appendChild(video);
+        embed.style.display = 'block';
+        return;
+    }
+    let modelUrl;
+    try { modelUrl = new URL(midia.url); } catch (_) { return; }
+    if (modelUrl.protocol !== 'https:') return;
+    if (/\.(glb|gltf)(?:$|\?)/i.test(modelUrl.href)) {
+        const viewer = document.createElement('model-viewer');
+        viewer.setAttribute('src', modelUrl.href);
+        viewer.setAttribute('alt', produto.texto || 'Modelo 3D do produto');
+        viewer.setAttribute('camera-controls', '');
+        viewer.setAttribute('auto-rotate', '');
+        viewer.setAttribute('ar', '');
+        viewer.style.width = '100%';
+        viewer.style.height = '100%';
+        embed.appendChild(viewer);
+    } else {
+        const iframe = document.createElement('iframe');
+        iframe.src = modelUrl.href;
+        iframe.title = 'Visualização 3D do produto';
+        iframe.loading = 'lazy';
+        iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+        iframe.allow = 'autoplay; fullscreen; xr-spatial-tracking';
+        embed.appendChild(iframe);
+    }
+    embed.style.display = 'block';
+}
+
 function abrirTelaCompra(id) {
     const produto = listaProdutosGlobal.find((p) => p.id === id);
     if (!produto) return;
@@ -617,6 +705,7 @@ function abrirTelaCompra(id) {
     if (controles3D) {
         controles3D.style.display = produto.modelo_3d_url ? 'flex' : 'none';
     }
+    carregarGaleriaPublica(produto);
 
     if (tituloEl) tituloEl.textContent = produto.texto || 'Acessório Florenza';
     if (precoEl) precoEl.textContent = produto.preco ? formatarBRL(precoNum) : 'Sob consulta';
@@ -989,6 +1078,8 @@ function editarProdutoAdmin(id) {
     const produto = listaProdutosGlobal.find(p => String(p.id) === String(id));
     if (!produto) return;
     document.getElementById('adminProdutoEditando').value = String(produto.id);
+    const seletorMidias = document.getElementById('adminMediaProduto');
+    if (seletorMidias) { seletorMidias.value = String(produto.id); carregarMidiasProduto(); }
     document.getElementById('nomeProduto').value = produto.texto || '';
     document.getElementById('precoProduto').value = produto.preco ?? '';
     document.getElementById('precoAntigoProduto').value = produto.preco_antigo ?? '';
