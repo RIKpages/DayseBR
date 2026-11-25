@@ -876,3 +876,60 @@ body {
     .form-row { flex-direction: column; gap: 0; }
     .drawer-card { max-width: 100%; }
 }
+
+/* Movimento elegante Florenza — dourado/rosé, sem alterar a identidade visual. */
+.model-hero-stage {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    transition: box-shadow .45s ease, border-color .45s ease;
+}
+.model-hero-stage::before,
+.model-hero-stage::after {
+    content: "";
+    position: absolute;
+    width: 190px;
+    height: 190px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: -1;
+    filter: blur(2px);
+    opacity: .32;
+}
+.model-hero-stage::before {
+    top: -115px; left: 28%;
+    background: radial-gradient(circle, rgba(194,151,88,.22), transparent 70%);
+    animation: florenzaGlow 9s ease-in-out infinite alternate;
+}
+.model-hero-stage::after {
+    right: -110px; bottom: -125px;
+    background: radial-gradient(circle, rgba(234,182,186,.25), transparent 70%);
+    animation: florenzaGlow 11s ease-in-out infinite alternate-reverse;
+}
+.model-hero-media {
+    transform: perspective(1000px) rotateX(var(--tilt-y, 0deg)) rotateY(var(--tilt-x, 0deg));
+    transition: transform .22s ease-out, box-shadow .4s ease;
+    will-change: transform;
+}
+.model-hero-media img {
+    transition: transform .65s cubic-bezier(.2,.75,.25,1), opacity .28s ease;
+}
+.product-switching .model-hero-media img {
+    transform: scale(1.035);
+    opacity: .78;
+}
+.rail-item {
+    transition: flex-basis .35s ease, opacity .35s ease, transform .35s ease, box-shadow .35s ease;
+}
+.rail-item:hover { transform: translateY(-5px); }
+.rail-item.is-active { box-shadow: 0 12px 26px rgba(194,151,88,.14); }
+.btn, .contact-btn, .rail-arrow { transition: transform .22s ease, box-shadow .22s ease, background-color .22s ease; }
+.btn:hover, .contact-btn:hover { transform: translateY(-2px); }
+@keyframes florenzaGlow {
+    from { transform: translate3d(-10px, 0, 0) scale(.92); opacity: .22; }
+    to { transform: translate3d(18px, 16px, 0) scale(1.12); opacity: .42; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .model-hero-stage::before, .model-hero-stage::after { animation: none !important; }
+    .model-hero-media, .model-hero-media img, .rail-item { transition: none !important; }
+}

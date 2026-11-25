@@ -2,7 +2,6 @@ const SUPABASE_URL = 'https://finmivasfcnnjntfaeei.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpbm1pdmFzZmNubmpudGZhZWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwNzY2MTIsImV4cCI6MjEwNzY1MjYxMn0.0IURfOPO9ExLv4D2VM03ENyPIBzG2iy9xEyE1gtlFd0';
 const WHATSAPP_LOJA = '5511999999999'; // Substitua pelo WhatsApp real com DDI + DDD + número
 const CACHE_PRODUTOS_KEY = 'florenza_vitrine_cache_v3';
-const CACHE_CARRINHO_KEY = 'florenza_carrinho_v1';
 
 let _supabase = null;
 try {
@@ -13,20 +12,6 @@ try {
     }
 } catch (e) {
     console.warn('SDK Supabase indisponível, usando REST direto:', e);
-}
-
-function garantirClienteSupabase() {
-    if (_supabase) return _supabase;
-    try {
-        if (window.supabase && typeof window.supabase.createClient === 'function') {
-            _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-                auth: { persistSession: false }
-            });
-        }
-    } catch (e) {
-        console.warn('Não foi possível inicializar autenticação Supabase:', e);
-    }
-    return _supabase;
 }
 
 let listaProdutosGlobal = [];
@@ -66,19 +51,9 @@ function getStorageSafe(chave) {
 }
 
 function setStorageSafe(chave, valor) {
-    try { localStorage.setItem(chave, valor); } catch (e) {}
-}
-
-function salvarCarrinho() {
-    try { setStorageSafe(CACHE_CARRINHO_KEY, JSON.stringify(carrinho)); } catch (e) {}
-}
-
-function carregarCarrinhoSalvo() {
     try {
-        const raw = getStorageSafe(CACHE_CARRINHO_KEY);
-        const dados = raw ? JSON.parse(raw) : [];
-        return Array.isArray(dados) ? dados.filter(item => item && item.key && Number(item.quantidade) > 0) : [];
-    } catch (e) { return []; }
+        localStorage.setItem(chave, valor);
+    } catch (e) {}
 }
 
 function lerCacheVitrine() {
@@ -98,14 +73,14 @@ function salvarCacheVitrine(produtos) {
     } catch (e) {}
 }
 
-async function buscarProdutosRapido(timeoutMs = 9000) {
+async function buscarProdutosRapido(timeoutMs = 8000) {
+    // Não solicitar colunas opcionais pelo nome: modelo_3d_url e carrinho_count
+    // podem não existir no schema atual. select=* retorna somente as colunas reais.
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+    const endpoint = `${SUPABASE_URL}/rest/v1/tarefas?select=*&order=id.desc`;
 
     try {
-        // select=* evita que uma coluna opcional ausente (ex.: carrinho_count,
-        // anel_pulseira_ativo ou modelo_3d_url) derrube a consulta inteira.
-        const endpoint = `${SUPABASE_URL}/rest/v1/tarefas?select=*&order=id.desc`;
         const res = await fetch(endpoint, {
             method: 'GET',
             headers: {
@@ -116,68 +91,108 @@ async function buscarProdutosRapido(timeoutMs = 9000) {
             signal: controller.signal,
             cache: 'no-store'
         });
-
-        const responseText = await res.text();
+        const body = await res.text();
         if (!res.ok) {
-            let detalhe = responseText;
+            let detail = body;
             try {
-                const body = JSON.parse(responseText);
-                detalhe = body.message || body.details || body.hint || body.code || responseText;
+                const parsed = JSON.parse(body);
+                detail = parsed.message || parsed.details || parsed.hint || parsed.code || body;
             } catch (_) {}
-            throw new Error(`Supabase HTTP ${res.status}: ${detalhe}`);
+            throw new Error(`Supabase HTTP ${res.status}: ${detail}`);
         }
-
-        let dados;
-        try {
-            dados = responseText ? JSON.parse(responseText) : [];
-        } catch (_) {
-            throw new Error('O Supabase respondeu, mas o conteúdo não é um JSON válido.');
-        }
-        if (!Array.isArray(dados)) {
-            throw new Error('A resposta do catálogo não é uma lista de produtos.');
-        }
-        return dados;
+        let rows;
+        try { rows = body ? JSON.parse(body) : []; }
+        catch (_) { throw new Error('A resposta do catálogo não é um JSON válido.'); }
+        if (!Array.isArray(rows)) throw new Error('O catálogo retornou um formato inesperado.');
+        return rows;
     } catch (err) {
         if (err && err.name === 'AbortError') {
             throw new Error(`Tempo esgotado ao consultar o catálogo após ${timeoutMs} ms.`);
         }
         throw err;
     } finally {
-        clearTimeout(timer);
+        window.clearTimeout(timer);
     }
+}
+
+
+// Movimento editorial sutil: parallax leve no destaque e brilho flutuante.
+// Respeita a preferência de movimento reduzido e não depende de WebGL/GSAP.
+function iniciarMovimentoFlorenza() {
+    const stage = document.getElementById('showcaseModeloAtivo');
+    const media = document.querySelector('.model-hero-media');
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!stage || !media || reduced) return;
+
+    let raf = 0;
+    let targetX = 0, targetY = 0, currentX = 0, currentY = 0;
+    stage.addEventListener('pointermove', (event) => {
+        const rect = stage.getBoundingClientRect();
+        targetX = ((event.clientX - rect.left) / rect.width - 0.5) * 5;
+        targetY = ((event.clientY - rect.top) / rect.height - 0.5) * 5;
+        if (!raf) raf = requestAnimationFrame(tick);
+    }, { passive: true });
+    stage.addEventListener('pointerleave', () => {
+        targetX = 0; targetY = 0;
+        if (!raf) raf = requestAnimationFrame(tick);
+    }, { passive: true });
+    function tick() {
+        currentX += (targetX - currentX) * 0.09;
+        currentY += (targetY - currentY) * 0.09;
+        media.style.setProperty('--tilt-x', `${currentX}deg`);
+        media.style.setProperty('--tilt-y', `${-currentY}deg`);
+        if (Math.abs(targetX-currentX) > 0.02 || Math.abs(targetY-currentY) > 0.02) {
+            raf = requestAnimationFrame(tick);
+        } else {
+            raf = 0;
+        }
+    }
+}
+
+function animarTrocaDeProduto() {
+    const stage = document.getElementById('showcaseModeloAtivo');
+    if (!stage || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    stage.classList.remove('product-switching');
+    void stage.offsetWidth;
+    stage.classList.add('product-switching');
+    window.setTimeout(() => stage.classList.remove('product-switching'), 520);
 }
 
 // --- Inicialização com Logo de Carregamento ---
 function init() {
-    // Watchdog local: a tela nunca depende do Supabase, de imagens ou de WebGL.
-    const fallbackLogoTimer = setTimeout(esconderLogoCarregamento, 1800);
-    try {
-        carrinho = carregarCarrinhoSalvo();
-        atualizarContadorSacola();
-        const emCache = lerCacheVitrine();
-        if (emCache && emCache.length) {
-            listaProdutosGlobal = emCache;
-            produtosVisiveis = [...emCache];
-            indiceAtivo = 0;
-            renderTrilho(produtosVisiveis);
-        } else {
-            const trilho = document.getElementById('trilhoProdutos');
-            if (trilho) trilho.innerHTML = '<p style="color: var(--text-muted); margin: 0 auto;">Carregando vitrine...</p>';
-        }
-        // Operações remotas são independentes e nunca seguram a interface.
-        Promise.resolve(verificarSessao()).catch(() => renderHeader(null));
-        Promise.resolve(carregarProdutos(Boolean(emCache && emCache.length)))
-            .catch(err => console.warn('Catálogo indisponível; mantendo a vitrine local:', err))
-            .finally(() => {
-                clearTimeout(fallbackLogoTimer);
-                esconderLogoCarregamento();
-            });
-        const clienteLogado = getStorageSafe('florenza_cliente_email');
-        if (!clienteLogado) setTimeout(() => setModalDisplay('modalCliente', 'flex'), 2000);
-    } catch (err) {
-        console.error('Falha na inicialização Florenza:', err);
+    // Garantia de segurança: fecha a logo de carregamento no máximo em 1.5s mesmo em rede lenta
+    const fallbackLogoTimer = setTimeout(esconderLogoCarregamento, 1500);
+
+    const emCache = lerCacheVitrine();
+    if (emCache && emCache.length) {
+        listaProdutosGlobal = emCache;
+        produtosVisiveis = [...emCache];
+        indiceAtivo = 0;
+        renderTrilho(produtosVisiveis);
         clearTimeout(fallbackLogoTimer);
-        esconderLogoCarregamento();
+        setTimeout(esconderLogoCarregamento, 450);
+    } else {
+        const trilho = document.getElementById('trilhoProdutos');
+        if (trilho) {
+            trilho.innerHTML = '<p style="color: var(--text-muted); margin: 0 auto;">Carregando vitrine...</p>';
+        }
+    }
+
+    iniciarMovimentoFlorenza();
+    Promise.resolve(verificarSessao()).catch((err) => {
+        console.warn('[Florenza] Não foi possível verificar a sessão administrativa.', err);
+        renderHeader(null);
+    });
+    carregarProdutos(Boolean(emCache && emCache.length)).catch((err) => {
+        console.warn('[Florenza] Catálogo indisponível.', err);
+    }).finally(() => {
+        clearTimeout(fallbackLogoTimer);
+        setTimeout(esconderLogoCarregamento, 350);
+    });
+
+    const clienteLogado = getStorageSafe('florenza_cliente_email');
+    if (!clienteLogado) {
+        setTimeout(() => setModalDisplay('modalCliente', 'flex'), 1600);
     }
 }
 
@@ -228,14 +243,13 @@ async function salvarIdentificacaoCliente() {
                 'Content-Type': 'application/json',
                 Prefer: 'return=minimal'
             },
-            body: JSON.stringify([{ email, aceita_ofertas: Boolean(aceita.checked) }])
+            body: JSON.stringify([{ email }])
         }).catch(() => {});
     }
 }
 
 // --- Admin ---
 async function verificarSessao() {
-    garantirClienteSupabase();
     if (!_supabase) {
         renderHeader(null);
         return;
@@ -274,7 +288,6 @@ function abrirCarrinho() { setModalDisplay('modalCarrinho', 'flex'); renderizarC
 function fecharCarrinho() { setModalDisplay('modalCarrinho', 'none'); }
 
 async function fazerLogin() {
-    garantirClienteSupabase();
     if (!_supabase) {
         alert('Cliente de autenticação ainda carregando, tente novamente em 1 segundo.');
         return;
@@ -297,7 +310,6 @@ async function fazerLogin() {
 }
 
 async function fazerLogout() {
-    garantirClienteSupabase();
     if (_supabase) await _supabase.auth.signOut().catch(() => {});
     usuarioAdmin = false;
     renderHeader(null);
@@ -312,6 +324,12 @@ async function carregarProdutos(jaTemCache = false) {
     try {
         const data = await buscarProdutosRapido(5000);
         const lista = Array.isArray(data) ? data : [];
+        // Uma resposta vazia não apaga um cache anterior válido (ex.: leitura pública
+        // temporariamente sem linhas por configuração de acesso no Supabase).
+        if (!lista.length && jaTemCache && listaProdutosGlobal.length) {
+            renderTrilho(produtosVisiveis);
+            return;
+        }
         listaProdutosGlobal = lista;
         salvarCacheVitrine(lista);
 
@@ -327,13 +345,11 @@ async function carregarProdutos(jaTemCache = false) {
 
         renderTrilho(produtosVisiveis);
     } catch (err) {
-        console.error('[Florenza] Falha ao carregar catálogo do Supabase:', err);
         if (!jaTemCache) {
-            const detalhe = String(err && err.message ? err.message : err);
             trilho.innerHTML = `
-                <div style="text-align:center; margin: 0 auto; padding: 12px; max-width: 520px;">
-                    <p style="color: var(--accent-red); margin-bottom: 8px;">Não foi possível carregar as peças.</p>
-                    <small style="display:block; color:var(--text-muted); margin-bottom:10px; overflow-wrap:anywhere;">${detalhe.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</small>
+                <div style="text-align:center; margin: 0 auto; padding: 12px;">
+                    <p style="color: var(--accent-red); margin-bottom: 8px;">Não foi possível conectar à vitrine neste momento.</p>
+                    <small style="display:block;color:var(--text-muted);margin-bottom:10px;">A apresentação da Florenza continua disponível. Tente atualizar as peças em instantes.</small>
                     <button type="button" class="btn btn-dark btn-sm" onclick="carregarProdutos(false)">Tentar novamente</button>
                 </div>
             `;
@@ -389,6 +405,7 @@ function renderTrilho(produtos) {
         img.alt = nome;
         img.decoding = 'async';
         img.onerror = () => {
+            img.onerror = null;
             img.src = 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600';
         };
         imgWrap.appendChild(img);
@@ -419,6 +436,7 @@ function renderTrilho(produtos) {
 
 function selecionarIndiceTrilho(novoIndice) {
     if (!produtosVisiveis.length) return;
+    animarTrocaDeProduto();
     indiceAtivo = (novoIndice + produtosVisiveis.length) % produtosVisiveis.length;
 
     const itens = document.querySelectorAll('.rail-item');
@@ -475,7 +493,7 @@ function atualizarApresentacaoModelo(produto) {
 
     if (tituloEl) {
         const nome = produto.texto || 'Acessório Florenza';
-        tituloEl.textContent = `${nome} — seu brilho, nossa inspiração.`;
+        tituloEl.innerHTML = `${nome} — <em>seu brilho, nossa inspiração</em>.`;
     }
     if (precoEl) precoEl.textContent = produto.preco ? formatarBRL(precoNum) : 'Sob consulta';
     if (antigoEl) {
@@ -667,7 +685,6 @@ function adicionarProdutoAtualAoCarrinho() {
         carrinho.push({ key: itemKey, id: p.id, nome: nomeBase, detalhes: detalhesTexto, preco, quantidade: 1 });
     }
 
-    salvarCarrinho();
     atualizarContadorSacola();
 
     p.carrinho_count = (p.carrinho_count || 0) + 1;
@@ -693,7 +710,6 @@ function atualizarContadorSacola() {
 
 function removerItemCarrinho(index) {
     carrinho.splice(index, 1);
-    salvarCarrinho();
     atualizarContadorSacola();
     renderizarCarrinho();
 }
@@ -713,7 +729,6 @@ function adicionarSugestaoRapida(id) {
         carrinho.push({ key: itemKey, id: p.id, nome: p.texto || 'Acessório Florenza', detalhes: detalhesTexto, preco, quantidade: 1 });
     }
 
-    salvarCarrinho();
     atualizarContadorSacola();
     renderizarCarrinho();
 }
@@ -780,25 +795,24 @@ function finalizarCompra() {
     }
 
     const emailCliente = getStorageSafe('florenza_cliente_email') || 'Cliente Vitrine';
-    let mensagem = `Olá, *Florenza Bijouterias*! ✨\nGostaria de finalizar o pedido:\n(E-mail: ${emailCliente})\n\n`;
+    let mensagem = `Olá, *Florenza Bijouterias*! ✨%0AGostaria de finalizar o pedido:%0A(E-mail: ${emailCliente})%0A%0A`;
     let totalGeral = 0;
 
     carrinho.forEach((item) => {
         const subtotal = item.preco * item.quantidade;
         totalGeral += subtotal;
-        mensagem += `• *${item.nome}* x${item.quantidade}\n  _${item.detalhes}_ — ${formatarBRL(subtotal)}\n`;
+        mensagem += `• *${item.nome}* x${item.quantidade}%0A  _${item.detalhes}_ — ${formatarBRL(subtotal)}%0A`;
     });
 
-    mensagem += `\n*Total do Pedido: ${formatarBRL(totalGeral)}*`;
+    mensagem += `%0A*Total do Pedido: ${formatarBRL(totalGeral)}*`;
 
     totalVendasConcluidas += 1;
     receitaTotalAcumulada += totalGeral;
     atualizarDashboardVendas();
 
-    window.open(`https://wa.me/${WHATSAPP_LOJA}?text=${encodeURIComponent(mensagem)}`, '_blank', 'noopener,noreferrer');
+    window.open(`https://wa.me/${WHATSAPP_LOJA}?text=${mensagem}`, '_blank');
 
     carrinho = [];
-    salvarCarrinho();
     atualizarContadorSacola();
     fecharCarrinho();
 }
@@ -851,13 +865,15 @@ async function adicionarProduto() {
     try {
         await postProduto(novoItem);
     } catch (err) {
-        const msg = String(err.message);
-        if (msg.includes('anel_pulseira_ativo') || msg.includes('modelo_3d_url')) {
+        const msg = String(err.message || err);
+        // Se os campos extras ainda não existem no banco, publica com os campos
+        // essenciais e mantém os recursos opcionais desligados para essa peça.
+        if (msg.includes('anel_pulseira_ativo') || msg.includes('modelo_3d_url') || msg.includes('42703')) {
             delete novoItem.anel_pulseira_ativo;
             delete novoItem.modelo_3d_url;
             try {
                 await postProduto(novoItem);
-                alert('Peça publicada! Crie as colunas opcionais "anel_pulseira_ativo" (bool) e "modelo_3d_url" (text) na tabela "tarefas" do Supabase.');
+                alert('Peça publicada. Os campos opcionais de tamanho e modelo 3D não foram enviados porque ainda não existem no banco.');
             } catch (err2) {
                 alert('Erro ao publicar: ' + err2.message);
                 return;
