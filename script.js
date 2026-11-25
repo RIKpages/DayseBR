@@ -291,6 +291,7 @@ function renderHeader(session) {
         const waInput = document.getElementById('adminWhatsappLoja');
         if (waInput) waInput.value = getStorageSafe('florenza_whatsapp_loja') || WHATSAPP_LOJA;
         renderizarListaAdmin();
+        preencherSeletorMidias();
     } else {
         statusDiv.innerHTML = `<button type="button" onclick="abrirModalAdmin()" class="btn btn-outline">Admin</button>`;
         formLoginView.style.display = 'block';
@@ -957,6 +958,7 @@ function escaparHTMLAdmin(valor) {
 }
 
 function renderizarListaAdmin() {
+    preencherSeletorMidias();
     const listaEl = document.getElementById('adminListaProdutos');
     const countEl = document.getElementById('adminCatalogCount');
     if (!listaEl) return;
@@ -1057,6 +1059,231 @@ async function excluirProdutoAdmin(id) {
     } catch (err) {
         alert('Não foi possível excluir o produto: ' + err.message);
     }
+}
+
+// --- Galeria de mídias do catálogo ---
+const BUCKET_MIDIAS_FLORENZA = 'product-models';
+let midiasProdutoAtual = [];
+
+function preencherSeletorMidias() {
+    const select = document.getElementById('adminMediaProduto');
+    if (!select) return;
+    const selecionado = select.value;
+    select.replaceChildren(new Option('Selecione um produto cadastrado', ''));
+    listaProdutosGlobal.forEach((produto) => {
+        select.add(new Option(produto.texto || ('Produto #' + produto.id), String(produto.id)));
+    });
+    if (selecionado && listaProdutosGlobal.some(p => String(p.id) === selecionado)) select.value = selecionado;
+}
+
+function definirStatusMidias(mensagem, erro = false) {
+    const el = document.getElementById('adminMediaStatus');
+    if (!el) return;
+    el.textContent = mensagem;
+    el.classList.toggle('is-error', erro);
+}
+
+async function carregarMidiasProduto() {
+    const select = document.getElementById('adminMediaProduto');
+    const lista = document.getElementById('adminListaMidias');
+    const produtoId = select?.value;
+    midiasProdutoAtual = [];
+    if (!produtoId) {
+        if (lista) lista.innerHTML = '<p class="admin-empty">Selecione um produto para visualizar suas mídias.</p>';
+        definirStatusMidias('');
+        return;
+    }
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/produto_midias?produto_id=eq.${encodeURIComponent(produtoId)}&select=*&order=ordem.asc,created_at.asc`, {
+            headers: await obterHeadersAdmin()
+        });
+        if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+        midiasProdutoAtual = await res.json();
+        renderizarMidiasAdmin();
+        definirStatusMidias(`${midiasProdutoAtual.length} mídia(s) cadastrada(s).`);
+    } catch (err) {
+        definirStatusMidias('Não foi possível carregar as mídias: ' + err.message, true);
+    }
+}
+
+function renderizarMidiasAdmin() {
+    const lista = document.getElementById('adminListaMidias');
+    if (!lista) return;
+    lista.replaceChildren();
+    if (!midiasProdutoAtual.length) {
+        const empty = document.createElement('p');
+        empty.className = 'admin-empty';
+        empty.textContent = 'Este produto ainda não possui mídias adicionais.';
+        lista.appendChild(empty);
+        return;
+    }
+    midiasProdutoAtual.forEach((midia, index) => {
+        const row = document.createElement('article');
+        row.className = 'admin-media-row';
+        const preview = document.createElement('div');
+        preview.className = 'admin-media-preview';
+        if (midia.tipo === 'imagem') {
+            const img = document.createElement('img');
+            img.src = midia.thumbnail_url || midia.url;
+            img.alt = 'Prévia da mídia';
+            img.loading = 'lazy';
+            preview.appendChild(img);
+        } else {
+            const icon = document.createElement('span');
+            icon.textContent = midia.tipo === 'video' ? '▶' : '◇';
+            preview.appendChild(icon);
+        }
+        const details = document.createElement('div');
+        details.className = 'admin-media-details';
+        const title = document.createElement('strong');
+        title.textContent = midia.tipo.replace('_', ' ').toUpperCase();
+        const url = document.createElement('a');
+        url.href = midia.url;
+        url.target = '_blank';
+        url.rel = 'noopener noreferrer';
+        url.textContent = midia.url.split('/').pop().slice(0, 38);
+        const flags = document.createElement('small');
+        flags.textContent = [midia.capa ? 'Capa' : '', midia.ativo ? 'Ativa' : 'Inativa'].filter(Boolean).join(' · ');
+        details.append(title, url, flags);
+        const actions = document.createElement('div');
+        actions.className = 'admin-media-actions';
+        const cover = document.createElement('button');
+        cover.type = 'button'; cover.className = 'btn btn-secondary btn-sm';
+        cover.textContent = midia.capa ? 'Capa atual' : 'Definir capa';
+        cover.disabled = Boolean(midia.capa) || !midia.ativo;
+        cover.onclick = () => definirCapaMidia(midia.id);
+        const toggle = document.createElement('button');
+        toggle.type = 'button'; toggle.className = 'btn btn-outline btn-sm';
+        toggle.textContent = midia.ativo ? 'Desativar' : 'Ativar';
+        toggle.onclick = () => alternarAtivoMidia(midia.id, !midia.ativo);
+        const remove = document.createElement('button');
+        remove.type = 'button'; remove.className = 'btn btn-danger-soft btn-sm';
+        remove.textContent = 'Excluir';
+        remove.onclick = () => excluirMidiaProduto(midia.id);
+        const order = document.createElement('div');
+        order.className = 'admin-media-order';
+        const up = document.createElement('button');
+        up.type = 'button'; up.textContent = '↑'; up.title = 'Mover para cima'; up.disabled = index === 0;
+        up.onclick = () => moverMidia(index, -1);
+        const down = document.createElement('button');
+        down.type = 'button'; down.textContent = '↓'; down.title = 'Mover para baixo'; down.disabled = index === midiasProdutoAtual.length - 1;
+        down.onclick = () => moverMidia(index, 1);
+        order.append(up, down);
+        actions.append(cover, toggle, remove, order);
+        row.append(preview, details, actions);
+        lista.appendChild(row);
+    });
+}
+
+function identificarTipoMidia(file) {
+    const nome = file.name.toLowerCase();
+    if (file.type.startsWith('image/')) return 'imagem';
+    if (file.type.startsWith('video/')) return 'video';
+    if (/\.(glb|gltf|usdz|obj|mtl)$/.test(nome)) return 'modelo_3d';
+    return null;
+}
+
+async function enviarMidiasProduto() {
+    const produtoId = document.getElementById('adminMediaProduto')?.value;
+    const input = document.getElementById('adminMediaArquivos');
+    const files = Array.from(input?.files || []);
+    if (!produtoId) return alert('Selecione um produto antes de enviar arquivos.');
+    if (!files.length) return alert('Escolha pelo menos um arquivo.');
+    const invalidos = files.filter(file => !identificarTipoMidia(file) || file.size > 50 * 1024 * 1024);
+    if (invalidos.length) return alert('Arquivos não suportados ou maiores que 50 MB: ' + invalidos.map(f => f.name).join(', '));
+    const botao = document.querySelector('.admin-media-upload button');
+    if (botao) { botao.disabled = true; botao.textContent = 'Enviando...'; }
+    let enviados = 0;
+    try {
+        await obterHeadersAdmin();
+        for (const file of files) {
+            const tipo = identificarTipoMidia(file);
+            const nomeSeguro = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '-').slice(-90);
+            const caminho = `${produtoId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${nomeSeguro}`;
+            const { data: upload, error: uploadError } = await _supabase.storage.from(BUCKET_MIDIAS_FLORENZA).upload(caminho, file, {
+                cacheControl: '3600', contentType: file.type || 'application/octet-stream', upsert: false
+            });
+            if (uploadError) throw uploadError;
+            const { data: publicData } = _supabase.storage.from(BUCKET_MIDIAS_FLORENZA).getPublicUrl(upload.path);
+            const url = publicData?.publicUrl;
+            if (!url) throw new Error('Não foi possível obter a URL pública de ' + file.name);
+            const insert = await fetch(`${SUPABASE_URL}/rest/v1/produto_midias`, {
+                method: 'POST',
+                headers: await obterHeadersAdmin({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
+                body: JSON.stringify({
+                    produto_id: Number(produtoId), tipo, url,
+                    ordem: midiasProdutoAtual.length + enviados,
+                    capa: midiasProdutoAtual.length === 0 && enviados === 0,
+                    ativo: true
+                })
+            });
+            if (!insert.ok) {
+                await _supabase.storage.from(BUCKET_MIDIAS_FLORENZA).remove([upload.path]);
+                throw new Error(await insert.text() || 'Falha ao registrar a mídia no catálogo.');
+            }
+            enviados++;
+        }
+        input.value = '';
+        await carregarMidiasProduto();
+        definirStatusMidias(`${enviados} arquivo(s) enviado(s) com sucesso.`);
+    } catch (err) {
+        definirStatusMidias(`Envio interrompido após ${enviados} arquivo(s): ${err.message}`, true);
+    } finally {
+        if (botao) { botao.disabled = false; botao.textContent = 'Enviar mídias selecionadas'; }
+    }
+}
+
+async function atualizarRegistroMidia(id, payload) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/produto_midias?id=eq.${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: await obterHeadersAdmin({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
+        body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+}
+
+async function definirCapaMidia(id) {
+    try {
+        const atual = midiasProdutoAtual.find(m => String(m.id) === String(id));
+        if (!atual) return;
+        for (const midia of midiasProdutoAtual) {
+            if (midia.capa && String(midia.id) !== String(id)) await atualizarRegistroMidia(midia.id, { capa: false });
+        }
+        await atualizarRegistroMidia(id, { capa: true, ativo: true });
+        await carregarMidiasProduto();
+    } catch (err) { definirStatusMidias('Não foi possível alterar a capa: ' + err.message, true); }
+}
+
+async function alternarAtivoMidia(id, ativo) {
+    try {
+        await atualizarRegistroMidia(id, { ativo, ...(ativo ? {} : { capa: false }) });
+        await carregarMidiasProduto();
+    } catch (err) { definirStatusMidias('Não foi possível atualizar a mídia: ' + err.message, true); }
+}
+
+async function moverMidia(index, delta) {
+    const destino = index + delta;
+    if (destino < 0 || destino >= midiasProdutoAtual.length) return;
+    const a = midiasProdutoAtual[index], b = midiasProdutoAtual[destino];
+    try {
+        await atualizarRegistroMidia(a.id, { ordem: Number(b.ordem || 0) });
+        await atualizarRegistroMidia(b.id, { ordem: Number(a.ordem || 0) });
+        await carregarMidiasProduto();
+    } catch (err) { definirStatusMidias('Não foi possível reordenar as mídias: ' + err.message, true); }
+}
+
+async function excluirMidiaProduto(id) {
+    const midia = midiasProdutoAtual.find(m => String(m.id) === String(id));
+    if (!midia || !confirm('Excluir esta mídia permanentemente?')) return;
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/produto_midias?id=eq.${encodeURIComponent(id)}`, {
+            method: 'DELETE',
+            headers: await obterHeadersAdmin({ Prefer: 'return=minimal' })
+        });
+        if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+        await carregarMidiasProduto();
+        definirStatusMidias('Registro removido. O arquivo armazenado pode permanecer no Storage até a limpeza do bucket.');
+    } catch (err) { definirStatusMidias('Não foi possível excluir a mídia: ' + err.message, true); }
 }
 
 function exportarCatalogo(formato) {
