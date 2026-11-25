@@ -620,9 +620,13 @@ async function carregarGaleriaPublica(produto) {
             }
             thumbs.appendChild(button);
         });
-        if (midias.length && midias[0].tipo !== 'imagem') {
-            const primeiraImagem = midias.find(m => m.tipo === 'imagem');
-            if (primeiraImagem) mostrarMidiaCompra(primeiraImagem, produto);
+        // Abre automaticamente a mídia principal no palco grande.
+        // A API já ordena a capa primeiro; se não houver capa, prioriza uma imagem.
+        if (midias.length) {
+            const principal = midias.find(m => m.capa)
+                || midias.find(m => m.tipo === 'imagem')
+                || midias[0];
+            mostrarMidiaCompra(principal, produto);
         }
     } catch (err) {
         console.warn('Galeria pública indisponível:', err);
