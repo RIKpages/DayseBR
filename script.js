@@ -1372,8 +1372,15 @@ async function excluirMidiaProduto(id) {
             headers: await obterHeadersAdmin({ Prefer: 'return=minimal' })
         });
         if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+        const marker = `/storage/v1/object/public/${BUCKET_MIDIAS_FLORENZA}/`;
+        const pos = midia.url.indexOf(marker);
+        if (pos >= 0) {
+            const objectPath = decodeURIComponent(midia.url.slice(pos + marker.length));
+            const { error: removeError } = await _supabase.storage.from(BUCKET_MIDIAS_FLORENZA).remove([objectPath]);
+            if (removeError) console.warn('Registro removido, mas o arquivo não pôde ser excluído do Storage:', removeError);
+        }
         await carregarMidiasProduto();
-        definirStatusMidias('Registro removido. O arquivo armazenado pode permanecer no Storage até a limpeza do bucket.');
+        definirStatusMidias('Mídia excluída.');
     } catch (err) { definirStatusMidias('Não foi possível excluir a mídia: ' + err.message, true); }
 }
 
