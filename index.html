@@ -318,7 +318,7 @@
                         <label for="adminMediaArquivos">Adicionar arquivos</label>
                         <input type="file" id="adminMediaArquivos" multiple accept="image/*,video/mp4,video/webm,.glb,.gltf">
                         <small>Imagens, MP4/WebM e modelos GLB ou GLTF (GLB recomendado). Limite de 50 MB por arquivo.</small>
-                        <button type="button" class="btn btn-dark btn-block" onclick="enviarMidiasProduto()">Enviar mídias selecionadas</button>
+                        <button type="button" class="btn btn-dark btn-block" id="btnEnviarMidiasProduto" onclick="enviarMidiasProduto()">Enviar mídias selecionadas</button>
                     </div>
                     <div id="adminMediaStatus" class="admin-media-status" role="status" aria-live="polite"></div>
                     <div id="adminListaMidias" class="admin-media-list"><p class="admin-empty">Selecione um produto para visualizar suas mídias.</p></div>
@@ -372,7 +372,7 @@
     <!-- O SDK é assíncrono: sua indisponibilidade não deve atrasar o script local. -->
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <script src="./script.js" defer></script>
+    <script src="./script.js?v=20261124-gallery-fix" defer></script>
     <!-- Fallback independente: fecha o preloader mesmo se script.js falhar ou retornar 404. -->
     <script>
       (function () {
