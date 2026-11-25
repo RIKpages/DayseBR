@@ -48,7 +48,50 @@ on public.leads for insert to anon, authenticated
 with check (
   email is not null
   and length(email) <= 254
-  and email ~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$'
+  and email ~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}
+);
+
+create policy "Florenza admin read leads"
+on public.leads for select to authenticated
+using (lower(coalesce((select auth.jwt() ->> 'email'), '')) = 'kazin1324@gmail.com');
+
+-- Storage: acesso público de leitura aos modelos; escrita/administração somente admin.
+drop policy if exists "Florenza public read product models" on storage.objects;
+drop policy if exists "Florenza admin upload product models" on storage.objects;
+drop policy if exists "Florenza admin update product models" on storage.objects;
+drop policy if exists "Florenza admin delete product models" on storage.objects;
+
+create policy "Florenza public read product models"
+on storage.objects for select to anon, authenticated
+using (bucket_id = 'product-models');
+
+create policy "Florenza admin upload product models"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'product-models'
+  and lower(coalesce((select auth.jwt() ->> 'email'), '')) = 'kazin1324@gmail.com'
+);
+
+create policy "Florenza admin update product models"
+on storage.objects for update to authenticated
+using (
+  bucket_id = 'product-models'
+  and lower(coalesce((select auth.jwt() ->> 'email'), '')) = 'kazin1324@gmail.com'
+)
+with check (
+  bucket_id = 'product-models'
+  and lower(coalesce((select auth.jwt() ->> 'email'), '')) = 'kazin1324@gmail.com'
+);
+
+create policy "Florenza admin delete product models"
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'product-models'
+  and lower(coalesce((select auth.jwt() ->> 'email'), '')) = 'kazin1324@gmail.com'
+);
+
+commit;
+
 );
 
 create policy "Florenza admin read leads"
