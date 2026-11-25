@@ -29,7 +29,10 @@ drop policy if exists "Florenza admin manage media" on public.produto_midias;
 
 create policy "Florenza public read active media"
 on public.produto_midias for select to anon, authenticated
-using (ativo = true);
+using (
+  ativo = true
+  or lower(coalesce((select auth.jwt() ->> 'email'), '')) = 'kazin1324@gmail.com'
+);
 
 create policy "Florenza admin manage media"
 on public.produto_midias for all to authenticated
