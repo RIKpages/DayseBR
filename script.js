@@ -1242,7 +1242,9 @@ function renderizarMidiasAdmin() {
         cover.type = 'button'; cover.className = 'btn btn-secondary btn-sm';
         cover.textContent = midia.capa ? 'Capa atual' : 'Definir capa';
         cover.disabled = Boolean(midia.capa) || !midia.ativo;
-        cover.onclick = () => definirCapaMidia(midia.id);
+        cover.dataset.action = 'definir-capa-midia';
+        cover.dataset.midiaId = String(midia.id);
+        cover.setAttribute('aria-label', 'Definir como capa deste produto');
         const toggle = document.createElement('button');
         toggle.type = 'button'; toggle.className = 'btn btn-outline btn-sm';
         toggle.textContent = midia.ativo ? 'Desativar' : 'Ativar';
@@ -1447,6 +1449,26 @@ if (document.readyState === 'loading') {
 } else {
     init();
 }
+
+// Ação delegada em capture: continua funcionando mesmo quando os botões da galeria
+// são recriados dinamicamente e permite registrar o clique antes de outros listeners.
+document.addEventListener('click', (event) => {
+    const alvo = event.target instanceof Element
+        ? event.target.closest('#adminListaMidias [data-action="definir-capa-midia"]')
+        : null;
+    if (!alvo) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const id = alvo.dataset.midiaId;
+    console.info('[Florenza] Clique em Definir capa recebido.', { id });
+    definirStatusMidias('Clique recebido. Atualizando capa...');
+    if (typeof window.definirCapaMidia !== 'function') {
+        definirStatusMidias('A ação de capa não foi carregada. Atualize a página (Ctrl+F5) e tente novamente.', true);
+        console.error('[Florenza] window.definirCapaMidia não está disponível.');
+        return;
+    }
+    window.definirCapaMidia(id);
+}, true);
 
 // Fundo reativo: acompanha o cursor com suavidade, sem interferir no trilho ou no toque.
 (function iniciarFundoReativoFlorenza() {
