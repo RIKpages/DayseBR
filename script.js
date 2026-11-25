@@ -1270,7 +1270,7 @@ function identificarTipoMidia(file) {
     const nome = file.name.toLowerCase();
     if (file.type.startsWith('image/')) return 'imagem';
     if (file.type.startsWith('video/')) return 'video';
-    if (/\.(glb|gltf|usdz|obj|mtl)$/.test(nome)) return 'modelo_3d';
+    if (/\.(glb|gltf)$/.test(nome)) return 'modelo_3d';
     return null;
 }
 
