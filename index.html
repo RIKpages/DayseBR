@@ -302,6 +302,27 @@
                 <button type="button" id="btnSalvarProdutoAdmin" onclick="salvarProdutoAdmin()" class="btn btn-dark btn-block" style="margin-top: 14px;">Publicar no Trilho</button>
                 <button type="button" id="btnCancelarEdicaoAdmin" onclick="cancelarEdicaoProduto()" class="btn btn-outline btn-block" style="display:none; margin-top:8px;">Cancelar edição</button>
 
+                <section class="admin-media-panel" aria-labelledby="adminMediaTitle">
+                    <div class="admin-tools-heading">
+                        <div><span class="hero-tag">CONTEÚDO VISUAL</span><h3 id="adminMediaTitle">Galeria de mídias</h3></div>
+                    </div>
+                    <p class="admin-media-help">Selecione uma peça para enviar e organizar fotos, vídeos e arquivos 3D. Os arquivos ficam no Supabase Storage.</p>
+                    <div class="input-group">
+                        <label for="adminMediaProduto">Produto da galeria</label>
+                        <select id="adminMediaProduto" onchange="carregarMidiasProduto()">
+                            <option value="">Selecione um produto cadastrado</option>
+                        </select>
+                    </div>
+                    <div class="admin-media-upload">
+                        <label for="adminMediaArquivos">Adicionar arquivos</label>
+                        <input type="file" id="adminMediaArquivos" multiple accept="image/*,video/mp4,video/webm,.glb,.gltf,.usdz,.obj,.mtl">
+                        <small>Imagens, MP4/WebM e modelos GLB, GLTF, USDZ, OBJ ou MTL. Limite de 50 MB por arquivo.</small>
+                        <button type="button" class="btn btn-dark btn-block" onclick="enviarMidiasProduto()">Enviar mídias selecionadas</button>
+                    </div>
+                    <div id="adminMediaStatus" class="admin-media-status" role="status" aria-live="polite"></div>
+                    <div id="adminListaMidias" class="admin-media-list"><p class="admin-empty">Selecione um produto para visualizar suas mídias.</p></div>
+                </section>
+
                 <section class="admin-tools-panel">
                     <div class="admin-tools-heading">
                         <div><span class="hero-tag">GESTÃO DA LOJA</span><h3>Ferramentas do catálogo</h3></div>
