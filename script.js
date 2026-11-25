@@ -1330,23 +1330,37 @@ window.enviarMidiasProduto = enviarMidiasProduto;
 async function atualizarRegistroMidia(id, payload) {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/produto_midias?id=eq.${encodeURIComponent(id)}`, {
         method: 'PATCH',
-        headers: await obterHeadersAdmin({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
+        headers: await obterHeadersAdmin({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
         body: JSON.stringify(payload)
     });
     if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+    const atualizados = await res.json();
+    if (!Array.isArray(atualizados) || atualizados.length === 0) {
+        throw new Error('O Supabase não atualizou nenhum registro. Verifique se a mídia ainda existe e se a política de acesso do administrador permite editar produto_midias.');
+    }
+    return atualizados[0];
 }
 
 async function definirCapaMidia(id) {
+    definirStatusMidias('Definindo capa...');
+    const botoes = document.querySelectorAll('#adminListaMidias .admin-media-actions button');
+    botoes.forEach(botao => { botao.disabled = true; });
     try {
         const atual = midiasProdutoAtual.find(m => String(m.id) === String(id));
-        if (!atual) return;
+        if (!atual) throw new Error('Não encontrei essa mídia na lista atual. Recarregue as mídias do produto.');
         for (const midia of midiasProdutoAtual) {
             if (midia.capa && String(midia.id) !== String(id)) await atualizarRegistroMidia(midia.id, { capa: false });
         }
         await atualizarRegistroMidia(id, { capa: true, ativo: true });
         await carregarMidiasProduto();
-    } catch (err) { definirStatusMidias('Não foi possível alterar a capa: ' + err.message, true); }
+        definirStatusMidias('Capa do produto atualizada com sucesso.');
+    } catch (err) {
+        definirStatusMidias('Não foi possível alterar a capa: ' + err.message, true);
+    } finally {
+        botoes.forEach(botao => { botao.disabled = false; });
+    }
 }
+window.definirCapaMidia = definirCapaMidia;
 
 async function alternarAtivoMidia(id, ativo) {
     try {
