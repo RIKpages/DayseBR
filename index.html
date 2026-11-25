@@ -96,7 +96,7 @@
 
             <div class="model-hero-info">
                 <span class="hero-tag">♔ APRESENTAÇÃO FLORENZA · BELEZA · ESTILO · VOCÊ</span>
-                <h1 id="heroModeloTitulo">Detalhes que fazem você ainda mais <em>única</em>.</h1>
+                <h1 id="heroModeloTitulo">Conheça os detalhes da coleção Florenza.</h1>
                 <p id="heroModeloSubtitulo" class="hero-model-desc">Escolha sua peça no trilho abaixo, personalize caixinha ou sacola na cor da sua preferência e finalize direto no WhatsApp.</p>
 
                 <div class="hero-price-row">
@@ -222,8 +222,8 @@
     <!-- Faixa Contínua Inferior -->
     <div class="bottom-marquee" aria-hidden="true">
         <div class="marquee-track">
-            <span>FLORENZA BIJOUTERIAS · CAIXINHAS E SACOLAS EM ROSA, PRETO, BEGE E BRANCO · BRINDE ESPECIAL EM CADA PEDIDO · SEU BRILHO, NOSSA INSPIRAÇÃO ·</span>
-            <span>FLORENZA BIJOUTERIAS · CAIXINHAS E SACOLAS EM ROSA, PRETO, BEGE E BRANCO · BRINDE ESPECIAL EM CADA PEDIDO · SEU BRILHO, NOSSA INSPIRAÇÃO ·</span>
+            <span>FLORENZA BIJOUTERIAS · CAIXINHAS E SACOLAS EM ROSA, PRETO, BEGE E BRANCO · BRINDE ESPECIAL EM CADA PEDIDO ·</span>
+            <span>FLORENZA BIJOUTERIAS · CAIXINHAS E SACOLAS EM ROSA, PRETO, BEGE E BRANCO · BRINDE ESPECIAL EM CADA PEDIDO ·</span>
         </div>
     </div>
 
@@ -298,8 +298,32 @@
                     </label>
                 </div>
 
-                <button type="button" onclick="adicionarProduto()" class="btn btn-dark btn-block" style="margin-top: 14px;">Publicar no Trilho</button>
-                <button type="button" onclick="fazerLogout()" class="btn btn-danger-soft btn-block" style="margin-top: 8px;">Sair da Conta Admin</button>
+                <input type="hidden" id="adminProdutoEditando" value="">
+                <button type="button" id="btnSalvarProdutoAdmin" onclick="salvarProdutoAdmin()" class="btn btn-dark btn-block" style="margin-top: 14px;">Publicar no Trilho</button>
+                <button type="button" id="btnCancelarEdicaoAdmin" onclick="cancelarEdicaoProduto()" class="btn btn-outline btn-block" style="display:none; margin-top:8px;">Cancelar edição</button>
+
+                <section class="admin-tools-panel">
+                    <div class="admin-tools-heading">
+                        <div><span class="hero-tag">GESTÃO DA LOJA</span><h3>Ferramentas do catálogo</h3></div>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="carregarProdutos(false)">↻ Atualizar</button>
+                    </div>
+                    <div class="admin-tools-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="exportarCatalogo('json')">Backup JSON</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="exportarCatalogo('csv')">Exportar CSV</button>
+                    </div>
+                    <div class="input-group admin-whatsapp-config">
+                        <label for="adminWhatsappLoja">WhatsApp da loja (DDI + DDD + número)</label>
+                        <div class="admin-whatsapp-row">
+                            <input type="tel" id="adminWhatsappLoja" inputmode="numeric" placeholder="5511999999999">
+                            <button type="button" class="btn btn-dark btn-sm" onclick="salvarConfigWhatsApp()">Salvar</button>
+                        </div>
+                        <small>Esta configuração fica salva neste navegador.</small>
+                    </div>
+                    <div class="admin-catalog-head"><strong>Produtos cadastrados</strong><span id="adminCatalogCount">0 itens</span></div>
+                    <input type="search" id="adminBuscaProduto" class="admin-catalog-search" placeholder="Filtrar produtos pelo nome..." oninput="renderizarListaAdmin()">
+                    <div id="adminListaProdutos" class="admin-product-list"><p>Entre no painel para carregar o catálogo.</p></div>
+                </section>
+                <button type="button" onclick="fazerLogout()" class="btn btn-danger-soft btn-block" style="margin-top: 12px;">Sair da Conta Admin</button>
             </div>
         </div>
     </div>

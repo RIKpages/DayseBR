@@ -122,7 +122,8 @@ function iniciarMovimentoFlorenza() {
     const stage = document.getElementById('showcaseModeloAtivo');
     const media = document.querySelector('.model-hero-media');
     const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (!stage || !media || reduced) return;
+    const mobileOrCoarse = window.matchMedia && window.matchMedia('(max-width: 820px), (pointer: coarse)').matches;
+    if (!stage || !media || reduced || mobileOrCoarse) return;
 
     let raf = 0;
     let targetX = 0, targetY = 0, currentX = 0, currentY = 0;
@@ -279,6 +280,9 @@ function renderHeader(session) {
         formLoginView.style.display = 'none';
         formCadastroView.style.display = 'block';
         atualizarDashboardVendas();
+        const waInput = document.getElementById('adminWhatsappLoja');
+        if (waInput) waInput.value = getStorageSafe('florenza_whatsapp_loja') || WHATSAPP_LOJA;
+        renderizarListaAdmin();
     } else {
         statusDiv.innerHTML = `<button type="button" onclick="abrirModalAdmin()" class="btn btn-outline">Admin</button>`;
         formLoginView.style.display = 'block';
@@ -348,6 +352,7 @@ async function carregarProdutos(jaTemCache = false) {
         if (totalAdminEl) totalAdminEl.textContent = `${listaProdutosGlobal.length} peças`;
 
         renderTrilho(produtosVisiveis);
+        if (usuarioAdmin) renderizarListaAdmin();
     } catch (err) {
         if (!jaTemCache) {
             trilho.innerHTML = `
@@ -408,6 +413,7 @@ function renderTrilho(produtos) {
         img.src = imagem;
         img.alt = nome;
         img.decoding = 'async';
+        img.loading = idx < 4 ? 'eager' : 'lazy';
         img.onerror = () => {
             img.onerror = null;
             img.src = 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600';
@@ -488,6 +494,9 @@ function atualizarApresentacaoModelo(produto) {
         hero3DWrap.style.display = 'none';
     }
     if (heroImg) {
+        heroImg.loading = 'eager';
+        heroImg.decoding = 'async';
+        heroImg.fetchPriority = 'high';
         heroImg.src = imagem;
         heroImg.style.display = 'block';
     }
@@ -497,7 +506,7 @@ function atualizarApresentacaoModelo(produto) {
 
     if (tituloEl) {
         const nome = produto.texto || 'Acessório Florenza';
-        tituloEl.innerHTML = `${nome} — <em>seu brilho, nossa inspiração</em>.`;
+        tituloEl.textContent = nome;
     }
     if (precoEl) precoEl.textContent = produto.preco ? formatarBRL(precoNum) : 'Sob consulta';
     if (antigoEl) {
@@ -837,7 +846,8 @@ function finalizarCompra() {
     receitaTotalAcumulada += totalGeral;
     atualizarDashboardVendas();
 
-    window.open(`https://wa.me/${WHATSAPP_LOJA}?text=${mensagem}`, '_blank');
+    const whatsappDestino = (getStorageSafe('florenza_whatsapp_loja') || WHATSAPP_LOJA).replace(/\D/g, '');
+    window.open(`https://wa.me/${whatsappDestino}?text=${mensagem}`, '_blank', 'noopener');
 
     carrinho = [];
     atualizarContadorSacola();
@@ -917,8 +927,145 @@ async function adicionarProduto() {
     document.getElementById('imagemProduto').value = '';
     document.getElementById('modelo3dProduto').value = '';
     document.getElementById('adminAtivoAnelPulseira').checked = false;
+    cancelarEdicaoProduto();
     fecharModalAdmin();
     carregarProdutos();
+}
+
+
+// --- Ferramentas administrativas adicionais (usam somente colunas já conhecidas) ---
+function escaparHTMLAdmin(valor) {
+    return String(valor ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+
+function renderizarListaAdmin() {
+    const listaEl = document.getElementById('adminListaProdutos');
+    const countEl = document.getElementById('adminCatalogCount');
+    if (!listaEl) return;
+    const termo = (document.getElementById('adminBuscaProduto')?.value || '').trim().toLocaleLowerCase('pt-BR');
+    const filtrados = listaProdutosGlobal.filter(p => String(p.texto || '').toLocaleLowerCase('pt-BR').includes(termo));
+    if (countEl) countEl.textContent = `${filtrados.length} de ${listaProdutosGlobal.length} itens`;
+    if (!filtrados.length) {
+        listaEl.innerHTML = '<p class="admin-empty">Nenhum produto encontrado.</p>';
+        return;
+    }
+    listaEl.innerHTML = filtrados.map(p => `
+        <article class="admin-product-row">
+            <img src="${escaparHTMLAdmin(p.imagem || '')}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+            <div class="admin-product-copy">
+                <strong>${escaparHTMLAdmin(p.texto || 'Produto sem nome')}</strong>
+                <span>${escaparHTMLAdmin(formatarBRL(p.preco))}${p.preco_antigo ? ` · De ${escaparHTMLAdmin(formatarBRL(p.preco_antigo))}` : ''}</span>
+                <small>ID: ${escaparHTMLAdmin(p.id ?? 'sem ID')}</small>
+            </div>
+            <div class="admin-product-actions">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="editarProdutoAdmin('${escaparHTMLAdmin(p.id)}')">Editar</button>
+                <button type="button" class="btn btn-danger-soft btn-sm" onclick="excluirProdutoAdmin('${escaparHTMLAdmin(p.id)}')">Excluir</button>
+            </div>
+        </article>
+    `).join('');
+}
+
+function editarProdutoAdmin(id) {
+    const produto = listaProdutosGlobal.find(p => String(p.id) === String(id));
+    if (!produto) return;
+    document.getElementById('adminProdutoEditando').value = String(produto.id);
+    document.getElementById('nomeProduto').value = produto.texto || '';
+    document.getElementById('precoProduto').value = produto.preco ?? '';
+    document.getElementById('precoAntigoProduto').value = produto.preco_antigo ?? '';
+    document.getElementById('imagemProduto').value = produto.imagem || '';
+    document.getElementById('modelo3dProduto').value = produto.modelo_3d_url || '';
+    document.getElementById('adminAtivoAnelPulseira').checked = produto.anel_pulseira_ativo === true;
+    document.getElementById('btnSalvarProdutoAdmin').textContent = 'Salvar alterações';
+    document.getElementById('btnCancelarEdicaoAdmin').style.display = 'block';
+    document.getElementById('nomeProduto').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function cancelarEdicaoProduto() {
+    ['nomeProduto','precoProduto','precoAntigoProduto','imagemProduto','modelo3dProduto'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+    });
+    const tamanho = document.getElementById('adminAtivoAnelPulseira');
+    if (tamanho) tamanho.checked = false;
+    const editando = document.getElementById('adminProdutoEditando');
+    if (editando) editando.value = '';
+    const salvar = document.getElementById('btnSalvarProdutoAdmin');
+    if (salvar) salvar.textContent = 'Publicar no Trilho';
+    const cancelar = document.getElementById('btnCancelarEdicaoAdmin');
+    if (cancelar) cancelar.style.display = 'none';
+}
+
+async function salvarProdutoAdmin() {
+    const id = document.getElementById('adminProdutoEditando')?.value;
+    if (!id) return adicionarProduto();
+    const nome = document.getElementById('nomeProduto')?.value.trim();
+    const preco = (document.getElementById('precoProduto')?.value || '').trim().replace(',', '.');
+    const precoAntigo = (document.getElementById('precoAntigoProduto')?.value || '').trim().replace(',', '.');
+    const imagem = (document.getElementById('imagemProduto')?.value || '').trim();
+    if (!nome) return alert('Informe o nome da peça.');
+    const payload = { texto: nome, preco: preco || null, preco_antigo: precoAntigo || null, imagem: imagem || null };
+    const endpoint = `${SUPABASE_URL}/rest/v1/tarefas?id=eq.${encodeURIComponent(id)}`;
+    const enviar = async (body) => {
+        const res = await fetch(endpoint, {
+            method: 'PATCH',
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json', Prefer: 'return=minimal' },
+            body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+    };
+    try {
+        await enviar(payload);
+        cancelarEdicaoProduto();
+        await carregarProdutos(false);
+        alert('Produto atualizado com sucesso.');
+    } catch (err) {
+        alert('Não foi possível atualizar o produto: ' + err.message);
+    }
+}
+
+async function excluirProdutoAdmin(id) {
+    const produto = listaProdutosGlobal.find(p => String(p.id) === String(id));
+    if (!produto || !confirm(`Excluir "${produto.texto || 'este produto'}" do catálogo? Esta ação não pode ser desfeita.`)) return;
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/tarefas?id=eq.${encodeURIComponent(id)}`, {
+            method: 'DELETE',
+            headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, Prefer: 'return=minimal' }
+        });
+        if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+        cancelarEdicaoProduto();
+        await carregarProdutos(false);
+        alert('Produto removido do catálogo.');
+    } catch (err) {
+        alert('Não foi possível excluir o produto: ' + err.message);
+    }
+}
+
+function exportarCatalogo(formato) {
+    if (!listaProdutosGlobal.length) return alert('Não há produtos carregados para exportar.');
+    let conteudo, tipo, nome;
+    if (formato === 'csv') {
+        const colunas = ['id','texto','preco','preco_antigo','imagem','modelo_3d_url','anel_pulseira_ativo','likes'];
+        const linhas = [colunas.join(';'), ...listaProdutosGlobal.map(p => colunas.map(c =>
+            `"${String(p[c] ?? '').replace(/"/g, '""')}"`).join(';'))];
+        conteudo = '\ufeff' + linhas.join('\r\n'); tipo = 'text/csv;charset=utf-8'; nome = 'florenza-catalogo.csv';
+    } else {
+        conteudo = JSON.stringify({ exportado_em: new Date().toISOString(), produtos: listaProdutosGlobal }, null, 2);
+        tipo = 'application/json'; nome = 'florenza-backup-catalogo.json';
+    }
+    const blob = new Blob([conteudo], { type: tipo });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = nome; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function salvarConfigWhatsApp() {
+    const campo = document.getElementById('adminWhatsappLoja');
+    const numero = (campo?.value || '').replace(/\D/g, '');
+    if (numero.length < 10 || numero.length > 15) return alert('Informe um número válido com DDI + DDD + número.');
+    setStorageSafe('florenza_whatsapp_loja', numero);
+    alert('WhatsApp salvo neste navegador.');
 }
 
 document.addEventListener('click', (e) => {
